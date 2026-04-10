@@ -14,3 +14,4 @@ Start with:
 - `docs/architecture.md`
 - `docs/data-model.md`
 - `docs/progress.md`
+- `docs/development-style.md`
