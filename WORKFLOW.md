@@ -1,15 +1,14 @@
 ---
 tracker:
   kind: linear
-  project_slug: "replace-with-linear-project-slug"
+  project_slug: "cdd793b8a803"
   active_states:
-    - Ready for Build
-    - In Build
-    - Rework
+    - In Progress
+    - In Review
   terminal_states:
     - Done
-    - Closed
-    - Cancelled
+    - Canceled
+    - Duplicate
 
 polling:
   interval_ms: 5000
@@ -91,10 +90,14 @@ Follow the repository conventions in `docs/development-style.md`.
 2. If the issue changes product behavior, architecture, data model, or execution plan, update docs first.
 3. Keep changes incremental and aligned with current repository terminology.
 4. Validate the affected path before stopping.
-5. Summarize:
+5. If the acceptance criteria are met, stage the intended files and create a focused git commit.
+6. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
+7. If you do not commit, explain exactly why the task is not ready to commit.
+8. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
+   - whether the work was committed
    - any blockers or follow-up risks
 
 ## Project-Specific Constraints
@@ -108,6 +111,10 @@ Follow the repository conventions in `docs/development-style.md`.
   - `group`
 - Do not bypass the shared `Item` model.
 - Do not mix connector logic, processor logic, delivery logic, and UI logic in the same place.
+- Before stopping, classify the issue as exactly one of:
+  - `blocked`
+  - `still in progress`
+  - `ready to commit`
 
 {% if issue.labels contains "bug" %}
 ## Bug Handling
