@@ -96,21 +96,26 @@ Follow the repository conventions in `docs/development-style.md`.
    - focused commit created
    - branch pushed
    - PR prepared or opened for human review
-7. Do not mark work as `Done` from the agent workflow. `Done` is reserved for human-reviewed and accepted work.
-8. If the issue is blocked, explain the blocker clearly and leave the work classified as blocked instead of pretending it is complete.
-9. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
-10. Keep changes incremental and aligned with current repository terminology.
-11. Validate the affected path before stopping.
-12. If the acceptance criteria are met, stage the intended files and create a focused git commit.
-13. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
-14. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
-15. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
-16. Summarize:
+7. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
+8. Prefer creating a draft PR unless the issue explicitly says the work is ready for a non-draft review handoff.
+9. Include the PR URL in the final handoff summary whenever a PR is created.
+10. Do not mark work as `Done` from the agent workflow. `Done` is reserved for human-reviewed and accepted work.
+11. If the issue is blocked, explain the blocker clearly and leave the work classified as blocked instead of pretending it is complete.
+12. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
+13. Keep changes incremental and aligned with current repository terminology.
+14. Validate the affected path before stopping.
+15. If the acceptance criteria are met, stage the intended files and create a focused git commit.
+16. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
+17. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
+18. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
+19. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
    - whether the work was committed
    - whether the branch is ready for PR / human review
+   - whether a PR was created
+   - the PR URL if available
    - what Linear state the issue should move to next
    - any blockers or follow-up risks
 
@@ -131,6 +136,7 @@ Follow the repository conventions in `docs/development-style.md`.
   - push
   - PR
   - human review
+- Use a draft PR by default for implementation handoff unless the task explicitly calls for a ready PR.
 - Recommended Linear flow is:
   - `In Progress`
   - `In Review`
