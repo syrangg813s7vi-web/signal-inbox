@@ -63,11 +63,10 @@ Recommended repository workflow states:
 
 Current Symphony routing in `WORKFLOW.md` is set to actively work on:
 
-- `Ready for Build`
-- `In Build`
-- `Rework`
+- `In Progress`
+- `In Review`
 
-This keeps orchestration focused on implementation work instead of triage-only work.
+This keeps orchestration focused on active implementation and review handoff instead of triage-only work.
 
 ## Required Repository Context
 
@@ -87,7 +86,8 @@ Symphony agents should always read:
 2. Ensure the issue has a clear scope and acceptance criteria.
 3. Move the issue into an active implementation state.
 4. Start Symphony against this repository's `WORKFLOW.md`.
-5. Review outputs and validation before marking the issue done.
+5. When the work is branch / commit / push / PR ready, move it to `In Review`.
+6. Mark the issue `Done` only after human review and acceptance.
 
 ## Notes
 

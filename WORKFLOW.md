@@ -88,19 +88,30 @@ Follow the repository conventions in `docs/development-style.md`.
 
 1. Understand the issue and affected docs or modules.
 2. If the issue changes product behavior, architecture, data model, or execution plan, update docs first.
-3. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
-4. Keep changes incremental and aligned with current repository terminology.
-5. Validate the affected path before stopping.
-6. If the acceptance criteria are met, stage the intended files and create a focused git commit.
-7. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
-8. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
-9. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
-10. Summarize:
+3. Treat Linear state transitions as part of the handoff, not as optional metadata.
+4. Use `In Progress` only while the issue is actively being implemented or validated in a workspace.
+5. Move work to `In Review` only when the acceptance criteria are met and the branch is ready for human review.
+6. Do not treat local changes alone as review-ready. The expected review handoff is:
+   - branch created
+   - focused commit created
+   - branch pushed
+   - PR prepared or opened for human review
+7. Do not mark work as `Done` from the agent workflow. `Done` is reserved for human-reviewed and accepted work.
+8. If the issue is blocked, explain the blocker clearly and leave the work classified as blocked instead of pretending it is complete.
+9. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
+10. Keep changes incremental and aligned with current repository terminology.
+11. Validate the affected path before stopping.
+12. If the acceptance criteria are met, stage the intended files and create a focused git commit.
+13. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
+14. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
+15. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
+16. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
    - whether the work was committed
    - whether the branch is ready for PR / human review
+   - what Linear state the issue should move to next
    - any blockers or follow-up risks
 
 ## Project-Specific Constraints
@@ -120,6 +131,12 @@ Follow the repository conventions in `docs/development-style.md`.
   - push
   - PR
   - human review
+- Recommended Linear flow is:
+  - `In Progress`
+  - `In Review`
+  - `Done`
+- Use `In Review` only for work that is already ready for human inspection.
+- Leave blocked work in a non-terminal blocked state instead of moving it forward prematurely.
 - Direct commits to `main` should be reserved for explicitly requested repository maintenance or documentation-only exceptions.
 - Before stopping, classify the issue as exactly one of:
   - `blocked`

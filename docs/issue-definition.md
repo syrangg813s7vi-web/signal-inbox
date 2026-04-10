@@ -53,6 +53,28 @@ Bad examples:
 - UI should feel cleaner
 - support RSS completely
 
+## Linear State Rules
+
+Use these meanings consistently:
+
+- `In Progress`
+  - the issue is actively being implemented, investigated, or validated
+- `In Review`
+  - the issue meets acceptance criteria and is ready for human review
+- `Done`
+  - the work has passed human review or has otherwise been explicitly accepted by a human
+
+Do not move an issue to `In Review` if the work only exists as local uncommitted changes.
+
+The normal condition for `In Review` is:
+
+- acceptance criteria met
+- focused commit created
+- branch pushed
+- PR or review handoff prepared
+
+Blocked work should remain blocked rather than being advanced to a review or done state.
+
 ## Issue And Docs Relationship
 
 If an issue changes any of the following, docs should be updated first or together with the implementation:
