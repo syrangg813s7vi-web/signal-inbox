@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "paths": {
+      "@signal-inbox/ai": ["packages/ai/src/index.ts"],
+      "@signal-inbox/connectors": ["packages/connectors/src/index.ts"],
+      "@signal-inbox/core": ["packages/core/src/index.ts"],
+      "@signal-inbox/db": ["packages/db/src/index.ts"],
+      "@signal-inbox/delivery": ["packages/delivery/src/index.ts"],
+      "@signal-inbox/processors": ["packages/processors/src/index.ts"]
+    }
+  }
+}

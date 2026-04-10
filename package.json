@@ -1,0 +1,21 @@
+{
+  "name": "signal-inbox",
+  "private": true,
+  "engines": {
+    "node": ">=20.18.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @signal-inbox/web dev",
+    "build": "pnpm --filter @signal-inbox/web build",
+    "start": "pnpm --filter @signal-inbox/web start",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
