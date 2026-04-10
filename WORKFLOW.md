@@ -88,16 +88,19 @@ Follow the repository conventions in `docs/development-style.md`.
 
 1. Understand the issue and affected docs or modules.
 2. If the issue changes product behavior, architecture, data model, or execution plan, update docs first.
-3. Keep changes incremental and aligned with current repository terminology.
-4. Validate the affected path before stopping.
-5. If the acceptance criteria are met, stage the intended files and create a focused git commit.
-6. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
-7. If you do not commit, explain exactly why the task is not ready to commit.
-8. Summarize:
+3. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
+4. Keep changes incremental and aligned with current repository terminology.
+5. Validate the affected path before stopping.
+6. If the acceptance criteria are met, stage the intended files and create a focused git commit.
+7. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
+8. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
+9. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
+10. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
    - whether the work was committed
+   - whether the branch is ready for PR / human review
    - any blockers or follow-up risks
 
 ## Project-Specific Constraints
@@ -111,10 +114,17 @@ Follow the repository conventions in `docs/development-style.md`.
   - `group`
 - Do not bypass the shared `Item` model.
 - Do not mix connector logic, processor logic, delivery logic, and UI logic in the same place.
+- Normal implementation handoff is:
+  - branch
+  - commit
+  - push
+  - PR
+  - human review
+- Direct commits to `main` should be reserved for explicitly requested repository maintenance or documentation-only exceptions.
 - Before stopping, classify the issue as exactly one of:
   - `blocked`
   - `still in progress`
-  - `ready to commit`
+  - `ready for review`
 
 {% if issue.labels contains "bug" %}
 ## Bug Handling
