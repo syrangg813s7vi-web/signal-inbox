@@ -15,3 +15,11 @@ Start with:
 - `docs/data-model.md`
 - `docs/progress.md`
 - `docs/development-style.md`
+- `docs/symphony-setup.md`
+- `docs/issue-definition.md`
+
+For Symphony orchestration:
+
+- configure `WORKFLOW.md`
+- set your real Linear project slug
+- ensure `LINEAR_API_KEY` is available in the environment
