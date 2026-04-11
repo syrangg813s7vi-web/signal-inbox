@@ -45,9 +45,13 @@ Current package boundaries:
 
 Use Node `20.18+` or `22.x` and `pnpm`.
 
+The repository includes `.node-version`, `.nvmrc`, and `.mise.toml` so the expected Node
+runtime can be selected consistently across common version managers.
+
 Initial setup:
 
 1. `cp .env.example .env`
 2. `docker compose up -d`
-3. `pnpm install`
-4. `pnpm dev`
+3. `mise install` (or activate the Node version from `.nvmrc` / `.node-version`)
+4. `pnpm install`
+5. `pnpm dev`
