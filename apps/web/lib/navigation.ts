@@ -6,5 +6,8 @@ export interface AppNavItem {
 export const appNavItems: AppNavItem[] = [
   { href: "/", label: "Home" },
   { href: "/inbox", label: "Inbox" },
-  { href: "/digest", label: "Digest" }
+  { href: "/digest", label: "Digest" },
+  { href: "/sources", label: "Sources" },
+  { href: "/destinations", label: "Destinations" },
+  { href: "/settings", label: "Settings" }
 ];
