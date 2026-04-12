@@ -49,26 +49,22 @@ Requirements:
 - pnpm 9+
 - Docker Compose
 
-Use the pinned Node version:
-
-```bash
-nvm use
-```
-
-Or with `mise`:
+Install the pinned Node version first:
 
 ```bash
 mise install
 mise exec -- node -v
 ```
 
-Install dependencies:
+Or with `nvm`:
 
 ```bash
-pnpm install
+nvm use
 ```
 
-If your shell is not already using Node 22, run repo commands through `mise`:
+The most reliable way to run repo commands is through `mise exec -- ...` so the pinned Node 22 toolchain is used even if your shell default is older.
+
+Install dependencies:
 
 ```bash
 mise exec -- pnpm install
@@ -77,7 +73,7 @@ mise exec -- pnpm install
 Start local services:
 
 ```bash
-pnpm dev:services
+mise exec -- pnpm dev:services
 ```
 
 Environment variables:
@@ -88,25 +84,14 @@ Environment variables:
 Run the web app:
 
 ```bash
-pnpm dev
-```
-
-With `mise`:
-
-```bash
 mise exec -- pnpm dev
 ```
 
 Other useful commands:
 
 ```bash
-pnpm validate
-pnpm dev:services:stop
-```
-
-With `mise`:
-
-```bash
 mise exec -- pnpm validate
 mise exec -- pnpm dev:services:stop
 ```
+
+If your shell is already using Node 22 directly, the same commands also work without `mise exec --`.
