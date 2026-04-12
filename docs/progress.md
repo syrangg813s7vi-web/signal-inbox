@@ -259,6 +259,11 @@ The first slice is successful if:
 - repository scaffolding is now the active first implementation task in Phase 1
 - the planned repository shape is a pnpm monorepo with `apps/web` and shared `packages/*` boundaries
 
+### 2026-04-13
+
+- Phase 1 work now includes the first user-visible `Sources` surface for RSS source creation, pause, and reactivation
+- source status visibility should show both configured source state and the initialized sync-state baseline without starting sync execution in the same issue
+
 ### 2026-04-10
 
 - product direction finalized for the pilot project

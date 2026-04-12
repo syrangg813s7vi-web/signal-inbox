@@ -1,0 +1,241 @@
+import { desc, eq } from "drizzle-orm";
+
+import { createDbFromClient, createSqlClient, sourceSyncState, sources } from "@signal-inbox/db";
+
+export type SourceStatus = "active" | "paused" | "error";
+
+export interface SourceSyncStateRecord {
+  cursor: string | null;
+  lastSyncedAt: Date | null;
+  lastSuccessAt: Date | null;
+  lastErrorAt: Date | null;
+  lastErrorMessage: string | null;
+}
+
+export interface RssSourceRecord {
+  id: string;
+  name: string;
+  sourceType: "rss";
+  sourceRef: string;
+  sourceUrl: string | null;
+  status: SourceStatus;
+  topic: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+  syncState: SourceSyncStateRecord | null;
+}
+
+export interface CreateRssSourceInput {
+  name: string;
+  sourceUrl: string;
+  topic?: string | null;
+}
+
+type PostgresErrorLike = Error & {
+  code?: string;
+  constraint?: string;
+  constraint_name?: string;
+};
+
+export class SourceValidationError extends Error {}
+export class SourceConflictError extends Error {}
+export class SourceNotFoundError extends Error {}
+
+export async function listRssSources(databaseUrl?: string): Promise<RssSourceRecord[]> {
+  const client = createSqlClient(databaseUrl);
+  const db = createDbFromClient(client);
+
+  try {
+    const rows = await db
+      .select({
+        id: sources.id,
+        name: sources.name,
+        sourceType: sources.sourceType,
+        sourceRef: sources.sourceRef,
+        sourceUrl: sources.sourceUrl,
+        status: sources.status,
+        topic: sources.topic,
+        metadata: sources.metadata,
+        createdAt: sources.createdAt,
+        updatedAt: sources.updatedAt,
+        syncSourceId: sourceSyncState.sourceId,
+        syncCursor: sourceSyncState.cursor,
+        syncLastSyncedAt: sourceSyncState.lastSyncedAt,
+        syncLastSuccessAt: sourceSyncState.lastSuccessAt,
+        syncLastErrorAt: sourceSyncState.lastErrorAt,
+        syncLastErrorMessage: sourceSyncState.lastErrorMessage,
+      })
+      .from(sources)
+      .leftJoin(sourceSyncState, eq(sourceSyncState.sourceId, sources.id))
+      .where(eq(sources.sourceType, "rss"))
+      .orderBy(desc(sources.createdAt), desc(sources.updatedAt));
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      sourceType: row.sourceType,
+      sourceRef: row.sourceRef,
+      sourceUrl: row.sourceUrl,
+      status: row.status,
+      topic: row.topic,
+      metadata: row.metadata,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      syncState:
+        row.syncSourceId !== null
+          ? {
+              cursor: row.syncCursor,
+              lastSyncedAt: row.syncLastSyncedAt,
+              lastSuccessAt: row.syncLastSuccessAt,
+              lastErrorAt: row.syncLastErrorAt,
+              lastErrorMessage: row.syncLastErrorMessage,
+            }
+          : null,
+    }));
+  } finally {
+    await client.end();
+  }
+}
+
+export async function createRssSource(
+  input: CreateRssSourceInput,
+  databaseUrl?: string,
+): Promise<RssSourceRecord> {
+  const validatedInput = validateCreateInput(input);
+  const client = createSqlClient(databaseUrl);
+  const db = createDbFromClient(client);
+  const now = new Date();
+
+  try {
+    const createdSource = await db.transaction(async (tx) => {
+      const [source] = await tx
+        .insert(sources)
+        .values({
+          name: validatedInput.name,
+          sourceRef: buildSourceRef(validatedInput.sourceUrl),
+          sourceType: "rss",
+          sourceUrl: validatedInput.sourceUrl,
+          status: "active",
+          topic: validatedInput.topic,
+          updatedAt: now,
+        })
+        .returning();
+
+      await tx.insert(sourceSyncState).values({
+        sourceId: source.id,
+      });
+
+      return source;
+    });
+
+    return {
+      ...createdSource,
+      syncState: {
+        cursor: null,
+        lastSyncedAt: null,
+        lastSuccessAt: null,
+        lastErrorAt: null,
+        lastErrorMessage: null,
+      },
+    };
+  } catch (error) {
+    const postgresError = error as PostgresErrorLike;
+
+    if (
+      postgresError.code === "23505" &&
+      (postgresError.constraint_name ?? postgresError.constraint) ===
+        "sources_source_type_source_ref_key"
+    ) {
+      throw new SourceConflictError("That RSS source is already registered.");
+    }
+
+    throw error;
+  } finally {
+    await client.end();
+  }
+}
+
+export async function pauseSource(sourceId: string, databaseUrl?: string): Promise<RssSourceRecord> {
+  return updateSourceStatus(sourceId, "paused", databaseUrl);
+}
+
+export async function reactivateSource(
+  sourceId: string,
+  databaseUrl?: string,
+): Promise<RssSourceRecord> {
+  return updateSourceStatus(sourceId, "active", databaseUrl);
+}
+
+async function updateSourceStatus(
+  sourceId: string,
+  status: SourceStatus,
+  databaseUrl?: string,
+): Promise<RssSourceRecord> {
+  if (!sourceId.trim()) {
+    throw new SourceValidationError("Source id is required.");
+  }
+
+  const client = createSqlClient(databaseUrl);
+  const db = createDbFromClient(client);
+  const now = new Date();
+
+  try {
+    const [updatedSource] = await db
+      .update(sources)
+      .set({
+        status,
+        updatedAt: now,
+      })
+      .where(eq(sources.id, sourceId))
+      .returning();
+
+    if (!updatedSource) {
+      throw new SourceNotFoundError("Source not found.");
+    }
+
+    return {
+      ...updatedSource,
+      syncState: null,
+    };
+  } finally {
+    await client.end();
+  }
+}
+
+function validateCreateInput(input: CreateRssSourceInput): Required<CreateRssSourceInput> {
+  const name = input.name.trim();
+  const sourceUrl = normalizeSourceUrl(input.sourceUrl);
+  const topic = input.topic?.trim() ?? "";
+
+  if (!name) {
+    throw new SourceValidationError("Source name is required.");
+  }
+
+  return {
+    name,
+    sourceUrl,
+    topic: topic || null,
+  };
+}
+
+function normalizeSourceUrl(sourceUrl: string): string {
+  let parsedUrl: URL;
+
+  try {
+    parsedUrl = new URL(sourceUrl.trim());
+  } catch {
+    throw new SourceValidationError("Enter a valid RSS URL.");
+  }
+
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    throw new SourceValidationError("RSS URLs must use http or https.");
+  }
+
+  parsedUrl.hash = "";
+  return parsedUrl.toString();
+}
+
+function buildSourceRef(sourceUrl: string): string {
+  return sourceUrl;
+}
