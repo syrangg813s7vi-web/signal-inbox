@@ -58,7 +58,12 @@ export async function withSourceStorageReady<T>(operation: () => Promise<T>): Pr
     return await operation();
   } catch (error) {
     if (getStorageUnavailableKind(error) === "schema" && shouldAttemptPreviewSchemaBootstrap()) {
-      await ensureSourceStorageSchema();
+      try {
+        await ensureSourceStorageSchema();
+      } catch {
+        throw error;
+      }
+
       return operation();
     }
 
