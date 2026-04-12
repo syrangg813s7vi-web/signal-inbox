@@ -127,6 +127,68 @@ Placement rules:
 - do not place raw SQL or schema definitions inside page files
 - do not place page-specific view shaping inside domain packages unless it is broadly reusable
 
+## Vercel Directory Rules
+
+The repository remains a monorepo when deployed through Vercel.
+
+Vercel uses `apps/web` as the website deployment entrypoint, but the whole repository remains the source of truth.
+
+### Repository Root
+
+Keep monorepo-wide configuration in the repository root.
+
+Examples:
+
+- `package.json`
+- `pnpm-lock.yaml`
+- `pnpm-workspace.yaml`
+- `tsconfig.base.json`
+- `.nvmrc` or `.node-version`
+- `.npmrc`
+- `.env.example`
+- `vercel.json` when Vercel needs repository-level configuration
+
+### apps/web
+
+Keep website-specific code and website-specific build configuration in `apps/web`.
+
+Examples:
+
+- routes and pages
+- route handlers
+- components
+- styles
+- `apps/web/package.json`
+- `apps/web/tsconfig.json`
+- `next.config.*`
+- `postcss.config.*`
+- `tailwind.config.*`
+- `components.json`
+- app-specific `lib` and `server` folders
+
+### packages/*
+
+Keep shared logic in `packages/*`.
+
+Examples:
+
+- `db`
+- `ai`
+- `capture`
+- `connectors`
+- `normalization`
+- `knowledge`
+- `review`
+- `delivery`
+- `core`
+
+Vercel-specific constraints:
+
+- do not flatten the monorepo into a single app directory just for deployment
+- do not move repository-wide config into `apps/web`
+- do not place Next.js routes or page files into shared packages
+- treat `apps/web` as the Vercel root directory, not as the entire repository
+
 ## React and Next.js Style
 
 - use server-first patterns where practical

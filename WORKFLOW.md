@@ -93,7 +93,7 @@ Follow the repository conventions in `docs/development-style.md`.
 3. Treat Linear state transitions as part of the handoff, not as optional metadata.
 4. Use `In Progress` only while the issue is actively being implemented or validated in a workspace.
 5. Move work to `In Review` only when the acceptance criteria are met and the branch is ready for human review.
-6. For work that changes or adds a runnable web path, do not move to `In Review` until the site has been started successfully and the handoff includes a concrete local access URL.
+6. For work that changes or adds a runnable web path, do not move to `In Review` until the site is available through a Vercel preview deployment and the handoff includes the concrete preview URL.
 7. Do not treat local changes alone as review-ready. The expected review handoff is:
    - branch created
    - focused commit created
@@ -118,8 +118,8 @@ Follow the repository conventions in `docs/development-style.md`.
    - what changed
    - what docs changed
    - how the work was validated
-   - whether the site was started successfully
-   - the local URL used for review, if applicable
+   - whether the Vercel preview deployment is available
+   - the Vercel preview URL used for review, if applicable
    - whether the work was committed
    - whether the branch is ready for PR / human review
    - whether a PR was created
@@ -166,7 +166,7 @@ Follow the repository conventions in `docs/development-style.md`.
   - `In Review`
   - `Done`
 - Use `In Review` only for work that is already ready for human inspection and has a reviewable PR URL.
-- For web-facing changes, `In Review` also requires a running local site and a concrete URL included in the handoff.
+- For web-facing changes, `In Review` also requires a Vercel preview deployment URL included in the handoff.
 - Leave blocked work in a non-terminal blocked state instead of moving it forward prematurely.
 - Direct commits to `main` should be reserved for explicitly requested repository maintenance or documentation-only exceptions.
 - Before stopping, classify the issue as exactly one of:

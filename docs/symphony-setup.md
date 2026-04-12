@@ -74,7 +74,7 @@ Symphony agents should always read:
 2. Ensure the issue has a clear scope and acceptance criteria.
 3. Move the issue into an active implementation state.
 4. Start Symphony against this repository's `WORKFLOW.md`.
-5. When the work is branch / commit / push / PR ready and the review URL requirement is met for web-facing work, move it to `In Review`.
+5. When the work is branch / commit / push / PR ready and the Vercel preview URL requirement is met for web-facing work, move it to `In Review`.
 6. Mark the issue `Done` only after human review and acceptance.
 
 ## Architecture Alignment
@@ -94,6 +94,14 @@ Symphony work should align with the repository's current architecture:
 The first implementation slice is:
 
 - `RSS source -> CaptureEntry -> RawAsset -> Item -> basic knowledge processing -> Inbox`
+
+## Review Exposure
+
+For web-facing changes in the debugging stage:
+
+- use Vercel preview deployments as the review surface
+- include the concrete Vercel preview URL in the handoff
+- do not treat a local-only URL as sufficient review exposure
 
 ## Notes
 

@@ -76,8 +76,8 @@ The normal condition for `In Review` is:
 
 If the issue changes a runnable website or app surface, `In Review` also requires:
 
-- the site starts successfully in the current workspace
-- the handoff includes the concrete local URL for human review
+- the site is available through a Vercel preview deployment
+- the handoff includes the concrete Vercel preview URL for human review
 
 Blocked work should remain blocked rather than being advanced to a review or done state.
 
@@ -116,4 +116,4 @@ What observable results define completion?
 
 For web-facing issues, include a criterion equivalent to:
 
-- the site starts successfully and a review URL is provided
+- the Vercel preview deployment is available and a review URL is provided

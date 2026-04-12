@@ -77,6 +77,8 @@ The goal is to build a personal AI operating layer that supports this lifecycle:
 
 The first version should prove the full lifecycle with a narrow source set and a narrow review surface.
 
+During the debugging and review stage, the website should be exposed through Vercel preview deployments rather than a self-hosted review URL.
+
 ### Capture
 
 - RSS feeds
@@ -110,6 +112,10 @@ The first version should prove the full lifecycle with a narrow source set and a
 ### Delivery Sinks
 
 - Feishu
+
+### Review Exposure
+
+- Vercel preview deployment URL
 
 ## Explicit Non-Goals For V1
 

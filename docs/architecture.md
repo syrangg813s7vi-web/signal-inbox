@@ -11,7 +11,7 @@
 - queue: Redis + BullMQ
 - AI provider: OpenAI API via provider abstraction
 - package manager: pnpm
-- local development: local shell and Vercel preview for early review
+- debug and review website exposure: Vercel preview deployments
 - backend deployment target: self-hosted jobs and data services
 
 ## System Shape
@@ -181,6 +181,12 @@ Not responsible for:
 - Item processing
 - note sync execution
 - review scheduling
+
+Debug and review-stage expectation:
+
+- website review happens through Vercel preview deployments
+- Vercel is the temporary website exposure layer for human review
+- self-hosted runtime remains the target for jobs and data services
 
 ### Jobs
 
