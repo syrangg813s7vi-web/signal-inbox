@@ -35,6 +35,7 @@ Required for repository paths that talk to PostgreSQL directly.
 
 For `pnpm db:smoke`, either:
 
+- activate the repository Node version from `.nvmrc` (`22.22.2`) or another compatible Node 22 runtime first
 - set `DATABASE_URL` to a disposable PostgreSQL database
 - or run on a machine with local PostgreSQL CLI tools available so the smoke test can start a temporary cluster with `initdb`, `pg_ctl`, and `createdb`
 

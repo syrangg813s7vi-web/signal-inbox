@@ -39,6 +39,8 @@ For Symphony orchestration:
 
 ## Database Smoke Test
 
+Before running repository scripts, activate the Node version from `.nvmrc` (`22.22.2`) or an equivalent compatible Node 22 runtime.
+
 Run the capture-to-inbox schema smoke test with:
 
 `pnpm db:smoke`
