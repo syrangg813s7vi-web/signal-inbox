@@ -1,4 +1,26 @@
-export const dbPackage = {
-  name: "@signal-inbox/db",
-  responsibility: "Schema, migrations, and database client wiring.",
-} as const;
+export {
+  createDb,
+  createDbFromClient,
+  createSqlClient,
+  getDatabaseUrl,
+  type SignalInboxDatabase,
+} from "./client";
+export {
+  captureEntries,
+  captureEntryStatusEnum,
+  captureEntryTypeEnum,
+  enrichments,
+  itemGroupMembers,
+  itemGroups,
+  itemGroupTypeEnum,
+  items,
+  itemStatusEnum,
+  itemTypeEnum,
+  rawAssets,
+  rawAssetStatusEnum,
+  rawAssetTypeEnum,
+  sourceSyncState,
+  sources,
+  sourceStatusEnum,
+  sourceTypeEnum,
+} from "./schema";

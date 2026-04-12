@@ -10,7 +10,9 @@
     "dev": "pnpm --filter @signal-inbox/web dev",
     "build": "pnpm --filter @signal-inbox/web build",
     "start": "pnpm --filter @signal-inbox/web start",
-    "typecheck": "pnpm --filter @signal-inbox/web typecheck",
+    "db:generate": "pnpm --filter @signal-inbox/db db:generate",
+    "db:migrate": "pnpm --filter @signal-inbox/db db:migrate",
+    "typecheck": "pnpm --filter @signal-inbox/web typecheck && pnpm --filter @signal-inbox/db typecheck",
     "check": "pnpm typecheck && pnpm build"
   },
   "devDependencies": {
