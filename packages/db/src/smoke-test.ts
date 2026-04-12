@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
+import { eq } from "drizzle-orm";
+
 import {
   bootstrapSourceStorageSchema,
   captureEntries,
@@ -11,6 +13,7 @@ import {
   itemGroups,
   items,
   rawAssets,
+  sourceSyncState,
   sources,
 } from "./index";
 import { runMigrations } from "./migrate";
@@ -184,8 +187,52 @@ async function expectPostgresError(
 }
 
 async function runBootstrapCompatibilitySmokeTest(databaseUrl: string) {
+  const bootstrapClient = createSqlClient(databaseUrl);
+  const bootstrapDb = createDbFromClient(bootstrapClient);
+  const bootstrapSourceId = randomUUID();
+  const bootstrapSourceRef = `rss:bootstrap:${randomUUID()}`;
+
   await bootstrapSourceStorageSchema(databaseUrl);
+
+  try {
+    await bootstrapDb.insert(sources).values({
+      id: bootstrapSourceId,
+      name: "Bootstrap Feed",
+      sourceRef: bootstrapSourceRef,
+      sourceType: "rss",
+      sourceUrl: "https://example.com/bootstrap.xml",
+      topic: "Bootstrap",
+    });
+
+    await bootstrapDb.insert(sourceSyncState).values({
+      sourceId: bootstrapSourceId,
+    });
+  } finally {
+    await bootstrapClient.end();
+  }
+
   await runMigrations(databaseUrl);
+
+  const migratedClient = createSqlClient(databaseUrl);
+  const migratedDb = createDbFromClient(migratedClient);
+
+  try {
+    const [migratedSource] = await migratedDb
+      .select({ id: sources.id, sourceRef: sources.sourceRef })
+      .from(sources)
+      .where(eq(sources.id, bootstrapSourceId));
+
+    const [migratedSyncState] = await migratedDb
+      .select({ sourceId: sourceSyncState.sourceId })
+      .from(sourceSyncState)
+      .where(eq(sourceSyncState.sourceId, bootstrapSourceId));
+
+    assert.equal(migratedSource?.sourceRef, bootstrapSourceRef);
+    assert.equal(migratedSyncState?.sourceId, bootstrapSourceId);
+  } finally {
+    await migratedClient.end();
+  }
+
   await runSmokeTest(databaseUrl);
 }
 
