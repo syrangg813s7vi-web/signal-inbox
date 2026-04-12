@@ -102,6 +102,9 @@ Recommended structure:
   - item enrichment
   - note creation
   - knowledge sink sync
+- `packages/processors`
+  - reusable `score`, `dedupe`, `summarize`, `classify`, and `group` step modules
+  - supports the Knowledge Layer without replacing it
 - `packages/review`
   - digest generation
   - reminder and review generation

@@ -23,6 +23,7 @@
       "@signal-inbox/delivery": ["packages/delivery/src"],
       "@signal-inbox/knowledge": ["packages/knowledge/src"],
       "@signal-inbox/normalization": ["packages/normalization/src"],
+      "@signal-inbox/processors": ["packages/processors/src"],
       "@signal-inbox/review": ["packages/review/src"]
     }
   }

@@ -51,6 +51,8 @@ For Symphony orchestration:
   - extraction and RawAsset-to-Item transformation
 - `packages/knowledge`
   - item enrichment, note creation, and knowledge sink sync
+- `packages/processors`
+  - reusable knowledge-processing step placeholders in the fixed V1 order
 - `packages/review`
   - digest generation and review selection
 - `packages/ai`
