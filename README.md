@@ -36,3 +36,25 @@ For Symphony orchestration:
 - configure `WORKFLOW.md`
 - set your real Linear project slug
 - ensure `LINEAR_API_KEY` is available in the environment
+
+## Database Smoke Test
+
+Before running repository scripts, activate the Node version from `.nvmrc` (`22.22.2`) or an equivalent compatible Node 22 runtime.
+
+Run the capture-to-inbox schema smoke test with:
+
+`pnpm db:smoke`
+
+The smoke test runs the real `@signal-inbox/db` migration entrypoint and then inserts the minimal V1 chain:
+
+`Source -> CaptureEntry -> RawAsset -> Item -> Enrichment -> ItemGroup -> ItemGroupMember`
+
+Local options:
+
+- set `DATABASE_URL` to a disposable PostgreSQL database before running the command
+- or leave `DATABASE_URL` unset and let the command start a temporary local PostgreSQL instance with `initdb`, `pg_ctl`, and `createdb`
+
+CI expectation:
+
+- provide `DATABASE_URL` that points at the CI job's temporary or disposable PostgreSQL database
+- do not point the smoke test at a shared long-lived database
