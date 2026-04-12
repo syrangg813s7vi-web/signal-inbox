@@ -57,7 +57,7 @@ export async function getSourcesPageViewModel(): Promise<SourcesPageViewModel> {
     if (storageUnavailableKind !== null) {
       return {
         isAvailable: false,
-        unavailableReason: getUnavailableReason(storageUnavailableKind),
+        unavailableReason: getUnavailableReason(storageUnavailableKind, error),
         sources: [],
       };
     }
@@ -260,9 +260,13 @@ function getStorageUnavailableKind(error: unknown): StorageUnavailableKind | nul
   return null;
 }
 
-function getUnavailableReason(kind: StorageUnavailableKind): string {
+function getUnavailableReason(kind: StorageUnavailableKind, error?: unknown): string {
   if (kind === "bootstrap") {
-    return "Source storage is configured, but automatic preview migration bootstrap failed. Run the database migrations for this environment or grant the preview database user permission to create the required schema objects.";
+    const detail = getBootstrapFailureDetail(error);
+
+    return detail
+      ? `Source storage is configured, but automatic preview migration bootstrap failed. ${detail}`
+      : "Source storage is configured, but automatic preview migration bootstrap failed. Run the database migrations for this environment or grant the preview database user permission to create the required schema objects.";
   }
 
   if (kind === "configuration") {
@@ -278,6 +282,52 @@ function getUnavailableReason(kind: StorageUnavailableKind): string {
   }
 
   return "Source storage is unavailable in this environment. Configure the database to create, list, pause, or reactivate RSS sources.";
+}
+
+function getBootstrapFailureDetail(error: unknown): string | null {
+  for (const candidate of walkErrorChain(error)) {
+    const message = normalizeBootstrapFailureMessage(candidate.message);
+
+    if (message) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
+function normalizeBootstrapFailureMessage(message: string | undefined): string | null {
+  if (!message) {
+    return null;
+  }
+
+  const normalizedMessage = message.replace(/\s+/g, " ").trim();
+  const lowercasedMessage = normalizedMessage.toLowerCase();
+
+  if (
+    lowercasedMessage.includes("source storage bootstrap failed") ||
+    lowercasedMessage.includes("failed query:")
+  ) {
+    return null;
+  }
+
+  if (lowercasedMessage.includes('permission denied to create extension "pgcrypto"')) {
+    return 'The preview database role cannot install the `pgcrypto` extension. Preinstall `pgcrypto` or expose `gen_random_uuid()` before rechecking this route.';
+  }
+
+  if (
+    lowercasedMessage.includes("permission denied for database") ||
+    lowercasedMessage.includes("permission denied for schema") ||
+    lowercasedMessage.includes("must be owner of")
+  ) {
+    return "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.";
+  }
+
+  if (lowercasedMessage.includes('type "source_type" does not exist')) {
+    return "The preview database is reachable, but the source enums are still missing. Run the migrations for this environment before rechecking the route.";
+  }
+
+  return `${normalizedMessage}.`;
 }
 
 function* walkErrorChain(error: unknown): Generator<{ code?: string; message?: string }> {
