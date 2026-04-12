@@ -9,6 +9,12 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@signal-inbox/ai": "workspace:*",
+    "@signal-inbox/connectors": "workspace:*",
+    "@signal-inbox/core": "workspace:*",
+    "@signal-inbox/db": "workspace:*",
+    "@signal-inbox/delivery": "workspace:*",
+    "@signal-inbox/processors": "workspace:*",
     "next": "^15.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
