@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { sql } from "drizzle-orm";
 import {
   index,
@@ -38,7 +40,7 @@ export const itemGroupTypeEnum = pgEnum("item_group_type", ["topic"]);
 export const sources = pgTable(
   "sources",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
     name: text("name").notNull(),
     sourceType: sourceTypeEnum("source_type").notNull(),
     sourceRef: text("source_ref").notNull(),
@@ -75,7 +77,7 @@ export const sourceSyncState = pgTable("source_sync_state", {
 export const captureEntries = pgTable(
   "capture_entries",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
     entryType: captureEntryTypeEnum("entry_type").notNull(),
     sourceId: uuid("source_id").references(() => sources.id, { onDelete: "set null" }),
     triggerRef: text("trigger_ref"),
@@ -96,7 +98,7 @@ export const captureEntries = pgTable(
 export const rawAssets = pgTable(
   "raw_assets",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
     captureEntryId: uuid("capture_entry_id")
       .notNull()
       .references(() => captureEntries.id, { onDelete: "cascade" }),
@@ -127,7 +129,7 @@ export const rawAssets = pgTable(
 export const items = pgTable(
   "items",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
     rawAssetId: uuid("raw_asset_id")
       .notNull()
       .references(() => rawAssets.id, { onDelete: "cascade" }),
@@ -160,7 +162,7 @@ export const items = pgTable(
 export const enrichments = pgTable(
   "enrichments",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
     itemId: uuid("item_id")
       .notNull()
       .references(() => items.id, { onDelete: "cascade" }),
@@ -192,7 +194,7 @@ export const enrichments = pgTable(
 export const itemGroups = pgTable(
   "item_groups",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
     groupType: itemGroupTypeEnum("group_type").notNull(),
     title: text("title").notNull(),
     summary: text("summary"),
