@@ -4,8 +4,8 @@ This repository is the active root for the Signal Inbox pilot project.
 
 Current focus:
 
-- keep the project docs here
-- implement the first vertical slice
+- keep the project docs current
+- implement the first RSS vertical slice on top of the scaffolded monorepo
 - evolve the product and architecture directly in this repository
 
 Start with:
@@ -24,34 +24,63 @@ For Symphony orchestration:
 - set your real Linear project slug
 - ensure `LINEAR_API_KEY` is available in the environment
 
-## Monorepo Scaffold
+## Repository Layout
 
-The implementation scaffold uses:
-
-- `pnpm` workspaces
-- `apps/web` for the Next.js app shell
-- `packages/*` for shared module boundaries
-
-Current package boundaries:
-
+- `apps/web`
+  - Next.js app shell for Home, Inbox, Digest, Sources, Destinations, and Settings
 - `packages/db`
+  - database schema, migrations, and db client
 - `packages/connectors`
+  - source-specific fetch and normalization logic
 - `packages/processors`
+  - item enrichment pipeline modules
 - `packages/ai`
+  - AI provider abstraction and prompt orchestration
 - `packages/delivery`
+  - destination adapters
 - `packages/core`
+  - shared orchestration and job coordination
 
 ## Local Development
 
-Use Node `20.18+` or `22.x` and `pnpm`.
+Requirements:
 
-The repository includes `.node-version`, `.nvmrc`, and `.mise.toml` so the expected Node
-runtime can be selected consistently across common version managers.
+- Node.js 22+
+- pnpm 9+
+- Docker Compose
 
-Initial setup:
+Use the pinned Node version:
 
-1. `cp .env.example .env`
-2. `docker compose up -d`
-3. `mise install` (or activate the Node version from `.nvmrc` / `.node-version`)
-4. `pnpm install`
-5. `pnpm dev`
+```bash
+nvm use
+```
+
+Install dependencies:
+
+```bash
+pnpm install
+```
+
+Start local services:
+
+```bash
+pnpm dev:services
+```
+
+Environment variables:
+
+- copy `.env.example` to `.env`
+- fill in `OPENAI_API_KEY` when AI-backed features start landing
+
+Run the web app:
+
+```bash
+pnpm dev
+```
+
+Other useful commands:
+
+```bash
+pnpm validate
+pnpm dev:services:stop
+```

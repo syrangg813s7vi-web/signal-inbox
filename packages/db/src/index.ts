@@ -1,9 +1,11 @@
 export interface DatabaseModulePlaceholder {
-  readonly scope: "schema" | "migrations" | "client";
+  schema: "pending";
+  migrations: "pending";
+  client: "pending";
 }
 
-export const databaseModuleScopes: DatabaseModulePlaceholder["scope"][] = [
-  "schema",
-  "migrations",
-  "client"
-];
+export const databaseModulePlaceholder: DatabaseModulePlaceholder = {
+  schema: "pending",
+  migrations: "pending",
+  client: "pending",
+};

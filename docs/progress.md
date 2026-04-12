@@ -145,11 +145,10 @@ Phase 4 is complete when:
 
 ## Current Priorities
 
-1. establish project structure
-2. create database schema
-3. implement the first working source path
-4. render the first usable Inbox view
-5. validate the RSS vertical slice end to end
+1. create database schema
+2. implement the first working source path
+3. render the first usable Inbox view
+4. validate the RSS vertical slice end to end
 
 ## Confirmed Decisions
 
@@ -185,13 +184,12 @@ Phase 4 is complete when:
 
 ## Immediate Next Steps
 
-1. scaffold repository structure
-2. add database schema and migrations
-3. implement `sources` and `items` API surface
-4. implement RSS connector
-5. implement unified ingest flow
-6. implement minimal processing pipeline
-7. implement basic Inbox page
+1. add database schema and migrations
+2. implement `sources` and `items` API surface
+3. implement RSS connector
+4. implement unified ingest flow
+5. implement minimal processing pipeline
+6. implement basic Inbox page
 
 ## Validation Targets For The First Slice
 
@@ -216,3 +214,9 @@ The first slice is successful if:
 - product direction finalized for the pilot project
 - architecture, data model, and implementation direction were documented
 - project documentation intentionally kept to a minimal 4-file set for the pilot phase
+
+### 2026-04-11
+
+- monorepo scaffold added for `apps/web` and the shared packages
+- workspace bootstrap files added for pnpm, TypeScript, environment setup, and local services
+- minimal Next.js app shell added for Home, Inbox, Digest, Sources, Destinations, and Settings

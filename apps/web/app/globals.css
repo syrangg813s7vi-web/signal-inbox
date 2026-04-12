@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4efe4;
-  --foreground: #1b180f;
-  --muted: #6f664f;
-  --card: rgba(255, 252, 244, 0.78);
-  --border: rgba(72, 54, 24, 0.16);
-  --accent: #d06b2c;
-  --accent-strong: #9d4311;
+  color-scheme: light;
+  --background: #f4efe3;
+  --foreground: #14213d;
+  --card: rgba(255, 252, 245, 0.88);
+  --card-border: rgba(20, 33, 61, 0.1);
+  --accent: #e76f51;
+  --accent-strong: #c65336;
+  --muted: #5f6c7b;
 }
 
 * {
@@ -16,14 +17,16 @@
 
 html {
   background:
-    radial-gradient(circle at top left, rgba(208, 107, 44, 0.24), transparent 34%),
-    linear-gradient(180deg, #fbf7ef 0%, #f2ebdf 48%, #ebe1d0 100%);
-  color: var(--foreground);
+    radial-gradient(circle at top left, rgba(231, 111, 81, 0.2), transparent 32%),
+    radial-gradient(circle at 85% 20%, rgba(20, 33, 61, 0.12), transparent 28%),
+    linear-gradient(180deg, #f7f2e7 0%, #efe5d2 100%);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  background: transparent;
+  color: var(--foreground);
   font-family: Georgia, "Times New Roman", serif;
 }
 

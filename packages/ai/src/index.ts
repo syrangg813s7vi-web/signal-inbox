@@ -1,3 +1,6 @@
-export const aiTaskKinds = ["summarize", "digest"] as const;
+export interface AiTaskDefinition {
+  name: string;
+  promptPath: string;
+}
 
-export type AiTaskKind = (typeof aiTaskKinds)[number];
+export const aiPackageStatus = "placeholder";
