@@ -35,6 +35,8 @@ const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
 });
 
+const previewMigrationsTable = "__signal_inbox_preview_migrations";
+
 let sourceStorageBootstrapPromise: Promise<void> | null = null;
 
 export async function getSourcesPageViewModel(): Promise<SourcesPageViewModel> {
@@ -172,7 +174,10 @@ function shouldAttemptPreviewSchemaBootstrap(): boolean {
 
 async function ensureSourceStorageSchema() {
   if (!sourceStorageBootstrapPromise) {
-    sourceStorageBootstrapPromise = runMigrations().finally(() => {
+    sourceStorageBootstrapPromise = runMigrations(undefined, {
+      migrationsSchema: "public",
+      migrationsTable: previewMigrationsTable,
+    }).finally(() => {
       sourceStorageBootstrapPromise = null;
     });
   }
