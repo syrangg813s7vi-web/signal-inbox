@@ -1,5 +1,5 @@
 import { listRssSources, type RssSourceRecord } from "@signal-inbox/capture";
-import { runMigrations } from "@signal-inbox/db";
+import { bootstrapSourceStorageSchema } from "@signal-inbox/db";
 
 export interface SourceStatusViewModel {
   badgeLabel: string;
@@ -34,8 +34,6 @@ const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-const previewMigrationsTable = "__signal_inbox_preview_migrations";
 
 let sourceStorageBootstrapPromise: Promise<void> | null = null;
 
@@ -174,10 +172,7 @@ function shouldAttemptPreviewSchemaBootstrap(): boolean {
 
 async function ensureSourceStorageSchema() {
   if (!sourceStorageBootstrapPromise) {
-    sourceStorageBootstrapPromise = runMigrations(undefined, {
-      migrationsSchema: "public",
-      migrationsTable: previewMigrationsTable,
-    }).finally(() => {
+    sourceStorageBootstrapPromise = bootstrapSourceStorageSchema().finally(() => {
       sourceStorageBootstrapPromise = null;
     });
   }
