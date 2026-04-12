@@ -150,7 +150,7 @@ async function updateSourceStatus(
         status,
         updatedAt: now,
       })
-      .where(eq(sources.id, sourceId))
+      .where(and(eq(sources.id, sourceId), eq(sources.sourceType, "rss")))
       .returning();
 
     if (!updatedSource) {
