@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APP_NAME, V1_PROCESSOR_ORDER } from "@signal-inbox/core";
 
 import { appSurfaces } from "../lib/app-surfaces";
 
@@ -20,7 +21,7 @@ export function HomeShell() {
       <section className="rounded-[2rem] border border-[var(--card-border)] bg-[var(--card)] px-7 py-8 shadow-[0_24px_80px_rgba(20,33,61,0.08)] backdrop-blur">
         <div className="mb-8 flex flex-col gap-5">
           <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[var(--accent)]">
-            Signal Inbox
+            {APP_NAME}
           </p>
           <div className="max-w-3xl">
             <h1 className="text-4xl leading-tight font-semibold md:text-6xl">
@@ -50,10 +51,11 @@ export function HomeShell() {
               V1 pipeline
             </p>
             <ol className="mt-4 space-y-3 text-lg">
-              <li>1. dedupe</li>
-              <li>2. summarize</li>
-              <li>3. classify</li>
-              <li>4. group</li>
+              {V1_PROCESSOR_ORDER.map((step, index) => (
+                <li key={step}>
+                  {index + 1}. {step}
+                </li>
+              ))}
             </ol>
           </div>
         </div>
