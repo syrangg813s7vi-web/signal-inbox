@@ -1,4 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";--> statement-breakpoint
 CREATE TYPE "public"."capture_entry_status" AS ENUM('captured', 'normalized', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."capture_entry_type" AS ENUM('source_sync', 'manual_link');--> statement-breakpoint
 CREATE TYPE "public"."item_group_type" AS ENUM('topic');--> statement-breakpoint
@@ -9,7 +8,7 @@ CREATE TYPE "public"."raw_asset_type" AS ENUM('url', 'article');--> statement-br
 CREATE TYPE "public"."source_status" AS ENUM('active', 'paused', 'error');--> statement-breakpoint
 CREATE TYPE "public"."source_type" AS ENUM('rss');--> statement-breakpoint
 CREATE TABLE "capture_entries" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"entry_type" "capture_entry_type" NOT NULL,
 	"source_id" uuid,
 	"trigger_ref" text,
@@ -20,7 +19,7 @@ CREATE TABLE "capture_entries" (
 );
 --> statement-breakpoint
 CREATE TABLE "enrichments" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"item_id" uuid NOT NULL,
 	"importance_score" real,
 	"novelty_score" real,
@@ -44,7 +43,7 @@ CREATE TABLE "item_group_members" (
 );
 --> statement-breakpoint
 CREATE TABLE "item_groups" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"group_type" "item_group_type" NOT NULL,
 	"title" text NOT NULL,
 	"summary" text,
@@ -54,7 +53,7 @@ CREATE TABLE "item_groups" (
 );
 --> statement-breakpoint
 CREATE TABLE "items" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"raw_asset_id" uuid NOT NULL,
 	"item_type" "item_type" NOT NULL,
 	"title" text,
@@ -70,7 +69,7 @@ CREATE TABLE "items" (
 );
 --> statement-breakpoint
 CREATE TABLE "raw_assets" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"capture_entry_id" uuid NOT NULL,
 	"asset_type" "raw_asset_type" NOT NULL,
 	"external_id" text,
@@ -95,7 +94,7 @@ CREATE TABLE "source_sync_state" (
 );
 --> statement-breakpoint
 CREATE TABLE "sources" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"source_type" "source_type" NOT NULL,
 	"source_ref" text NOT NULL,

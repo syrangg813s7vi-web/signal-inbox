@@ -112,6 +112,7 @@ For web-facing changes in the debugging stage:
 - use Vercel preview deployments as the review surface
 - include the concrete Vercel preview URL in the handoff
 - do not treat a local-only URL as sufficient review exposure
+- if preview deployments have a database configured but are missing current schema, the affected web path may bootstrap pending migrations on first access so the review surface can become usable without a separate manual migration step
 
 ## Notes
 

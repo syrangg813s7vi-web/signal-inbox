@@ -9,7 +9,9 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@signal-inbox/capture": "workspace:*",
     "@signal-inbox/core": "workspace:*",
+    "@signal-inbox/db": "workspace:*",
     "next": "16.2.3",
     "react": "19.2.5",
     "react-dom": "19.2.5"

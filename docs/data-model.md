@@ -79,6 +79,10 @@ Purpose:
 
 Store the latest sync position and sync health for each source.
 
+Initialization:
+
+- create one `SourceSyncState` row when a recurring `Source` is created so later sync tracking has a stable record from day one
+
 Fields:
 
 - `source_id`

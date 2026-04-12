@@ -9,6 +9,7 @@ import {
 const shellLinks = [
   { href: "/", label: "Home" },
   { href: "/inbox", label: "Inbox" },
+  { href: "/sources", label: "Sources" },
 ];
 
 function Chip({ label }: { label: ArchitectureName }) {
@@ -24,6 +25,7 @@ export interface ShellFrameProps {
   title: string;
   description: string;
   callout: string;
+  children?: React.ReactNode;
 }
 
 export function ShellFrame({
@@ -31,6 +33,7 @@ export function ShellFrame({
   title,
   description,
   callout,
+  children,
 }: ShellFrameProps) {
   return (
     <main className="min-h-screen px-6 py-8 sm:px-10">
@@ -109,6 +112,8 @@ export function ShellFrame({
             </div>
           </article>
         </section>
+
+        {children}
       </div>
     </main>
   );
