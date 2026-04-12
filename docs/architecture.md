@@ -32,6 +32,7 @@ The system is a modular monolith with three product domains and four implementat
 - `Review Layer`
 
 This shape keeps the system aligned with the information lifecycle instead of centering the design only around source ingestion.
+This shape keeps the system aligned with the information lifecycle.
 
 ## Layer Model
 

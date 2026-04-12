@@ -2,9 +2,16 @@
 
 ## Current Stage
 
-Planning complete enough to begin implementation.
+Planning is complete enough to begin implementation under the new architecture.
 
-The project has a defined product direction, architecture, technical stack, data model, and MVP boundary. The next step is implementation through staged vertical slices.
+The project now has:
+
+- a product model based on `Capture`, `Knowledge`, and `Review`
+- a four-layer implementation model
+- a revised data model for capture, normalization, knowledge, and review
+- a clear V1 boundary
+
+The next step is implementation through staged vertical slices.
 
 ## Planning Rule
 
@@ -14,37 +21,49 @@ Tasks should be small enough to implement and verify, but not so small that they
 
 ## Current Phase
 
-Phase 1: RSS Vertical Slice
+Phase 1: First Capture-to-Inbox Slice
 
 ## Phase 1 Goal
 
 Run the first complete path:
 
-`RSS -> Item ingest -> basic processing -> Inbox`
+`RSS source -> CaptureEntry -> RawAsset -> Item -> basic knowledge processing -> Inbox`
 
 This is the first implementation target because:
 
 - RSS is the most stable V1 source type
-- it exercises the shared Item model
-- it exercises the source sync path
-- it exercises the processing pipeline
+- it exercises the new Capture domain
+- it exercises normalization into the shared Item model
+- it exercises the first knowledge-processing path
 - it creates the first useful visible product surface
 
 ## Phase 1 Planned Work Items
 
 1. Scaffold repository and application structure
-2. Add initial database schema and migrations
+2. Add initial database schema and migrations for:
+   - sources
+   - source_sync_state
+   - capture_entries
+   - raw_assets
+   - items
+   - enrichments
+   - item_groups
+   - item_group_members
 3. Implement Source CRUD for RSS sources
 4. Implement source sync jobs and sync state persistence
 5. Implement RSS connector
-6. Implement unified ingest into the Item model
-7. Implement the minimal processing pipeline:
+6. Implement capture flow:
+   - source sync creates CaptureEntry
+   - CaptureEntry creates RawAsset
+7. Implement normalization flow from RawAsset into Item
+8. Implement the minimal knowledge pipeline:
+   - score
    - dedupe
    - summarize
    - classify
    - group
-8. Implement Inbox list view for processed Items
-9. Add minimal validation path for the first slice
+9. Implement Inbox list view for processed Items
+10. Add minimal validation path for the first slice
 
 ## Phase 1 Dependencies
 
@@ -53,9 +72,10 @@ Order constraints:
 1. repository and schema before source CRUD
 2. source CRUD before source sync jobs
 3. source sync jobs before connector execution
-4. connector before unified ingest
-5. unified ingest before processing
-6. processing before Inbox becomes useful
+4. connector before capture persistence
+5. capture persistence before normalization
+6. normalization before knowledge processing
+7. knowledge processing before Inbox becomes useful
 
 ## Phase 1 Acceptance Criteria
 
@@ -63,99 +83,108 @@ Phase 1 is complete when:
 
 - a user can create an RSS source
 - the system can schedule or trigger an RSS sync
-- RSS entries are stored as Items
-- Items move through the processing pipeline
+- an RSS sync creates CaptureEntry records
+- source material is stored as RawAsset records
+- RawAssets are normalized into Items
+- Items move through the basic knowledge-processing pipeline
 - processed Items appear in Inbox
 - the output is good enough to prove the product direction
 
 ## Phase 2 Goal
 
-Run the first complete summary path:
+Run the first complete knowledge-preservation path:
 
-`processed Items -> daily Digest -> Home`
+`processed Item -> Note -> knowledge sink`
 
 ## Phase 2 Planned Work Items
 
-1. Implement digest generation job
-2. Store generated Digest records
-3. Implement Digest page
-4. Implement Home page
-5. Implement highlight selection query for Home
-6. Connect Home and Digest to processed Items
+1. Add schema for:
+   - notes
+   - knowledge_destinations
+2. Implement note creation rules for preservation-worthy Items
+3. Implement Knowledge page
+4. Implement Notion knowledge sink adapter
+5. Implement Obsidian knowledge sink adapter
+6. Add UI actions for saving Items as Notes
+7. Add note sync result visibility
 
 ## Phase 2 Acceptance Criteria
 
 Phase 2 is complete when:
 
-- a daily Digest can be generated from processed Items
-- Digest records are stored
-- Digest page renders a usable summary
-- Home shows a minimal summary state and top highlights
-- Home remains minimal and does not become a dashboard
+- a processed Item can become a Note
+- a Note can be sent to Notion
+- a Note can be sent to Obsidian
+- Knowledge page can display created Notes
+- the system clearly separates processed Items from preserved Notes
 
 ## Phase 3 Goal
 
-Run the first complete delivery path:
+Run the first complete review path:
 
-`Item / Digest -> Destination -> DeliveryLog`
+`processed Item / Note -> Digest -> Home`
 
 ## Phase 3 Planned Work Items
 
-1. Implement Destination CRUD
-2. Implement Notion adapter
-3. Implement Obsidian adapter
-4. Implement Feishu adapter
-5. Implement delivery jobs
-6. Implement delivery log persistence
-7. Add UI actions for sending Items or Digests
+1. Add schema for:
+   - digests
+   - review_objects
+2. Implement digest generation job
+3. Store generated Digest records
+4. Implement Digest page
+5. Implement Home page
+6. Implement highlight selection for Home
+7. Connect Home and Digest to Items and Notes
 
 ## Phase 3 Acceptance Criteria
 
 Phase 3 is complete when:
 
-- a destination can be configured
-- an Item can be manually delivered
-- a Digest can be delivered
-- delivery results are stored in DeliveryLog
-- users can understand whether a delivery succeeded or failed
+- a daily Digest can be generated from processed Items or Notes
+- Digest records are stored
+- Digest page renders a usable summary
+- Home shows a minimal summary state and top highlights
+- Home remains minimal and does not become a dashboard
 
 ## Phase 4 Goal
 
-Validate source extensibility without changing the core system shape.
+Validate input extensibility without changing the core system shape.
 
 Recommended path:
 
-`second source type -> shared ingest -> shared processing -> Inbox / Digest`
+`second input type -> shared capture -> shared normalization -> shared knowledge flow`
 
 ## Phase 4 Candidate Work Items
 
-1. Implement Twitter/X list connector or WeChat connector
-2. Extend source creation flow for the second source type
-3. Validate shared Item mapping for the second source type
-4. Confirm Inbox and Digest continue to work without structural change
+1. Implement manual saved-link capture
+2. Or implement Twitter/X list connector
+3. Or implement WeChat connector
+4. Validate that the new input enters the same RawAsset -> Item path
+5. Confirm Inbox, Knowledge, and Digest continue to work without structural rewrite
 
 ## Phase 4 Acceptance Criteria
 
 Phase 4 is complete when:
 
-- a second source type enters the same shared Item model
-- existing processing still works with minimal change
-- existing Inbox and Digest flows still work
+- a second input type enters the same capture and normalization model
+- existing knowledge processing still works with minimal change
+- existing Inbox, Knowledge, and Digest flows still work
 - no architectural rewrite is required
 
 ## Current Priorities
 
 1. establish project structure
-2. create database schema
-3. implement the first working source path
-4. render the first usable Inbox view
-5. validate the RSS vertical slice end to end
+2. create database schema for the new model
+3. implement the first working capture path
+4. implement normalization into Item
+5. render the first usable Inbox view
+6. validate the first capture-to-inbox slice end to end
 
 ## Confirmed Decisions
 
-- the project is a pilot project for ongoing Codex collaboration
+- the project remains a pilot project for ongoing Codex collaboration
 - templates are deferred until this project proves the workflow
-- the first version is a modular monolith
+- the first version remains a modular monolith
 - the stack is:
   - TypeScript
   - Next.js
@@ -166,32 +195,43 @@ Phase 4 is complete when:
   - BullMQ
   - OpenAI API
   - pnpm
-  - Docker Compose
+- the product is now structured around:
+  - Capture
+  - Knowledge
+  - Review
+- the implementation is now structured around:
+  - Capture Layer
+  - Normalization Layer
+  - Knowledge Layer
+  - Review Layer
 - Home must remain minimal
-- Inbox is the primary work surface
-- V1 source types are:
+- Inbox is the first major work surface
+- V1 capture inputs are:
   - rss
-  - twitter_list
-  - wechat
-- V1 destination types are:
+  - manual_link
+- V1 knowledge sinks are:
   - notion
   - obsidian
+- V1 delivery sink is:
   - feishu
-- V1 processing order is:
+- V1 knowledge processing order is:
+  - score
   - dedupe
   - summarize
   - classify
   - group
+  - note-build later
 
 ## Immediate Next Steps
 
 1. scaffold repository structure
-2. add database schema and migrations
-3. implement `sources` and `items` API surface
+2. add database schema and migrations for capture and normalization
+3. implement Source CRUD
 4. implement RSS connector
-5. implement unified ingest flow
-6. implement minimal processing pipeline
-7. implement basic Inbox page
+5. implement CaptureEntry and RawAsset creation
+6. implement normalization into Item
+7. implement the minimal knowledge-processing pipeline
+8. implement basic Inbox page
 
 ## Validation Targets For The First Slice
 
@@ -199,15 +239,17 @@ The first slice is successful if:
 
 - a user can create an RSS source
 - a sync job can fetch source content
-- items are stored in the database
-- items are processed into summaries
-- Inbox can display processed items
+- capture events are stored
+- raw source material is stored
+- raw material is normalized into Items
+- Items are processed into summaries and tags
+- Inbox can display processed Items
 
 ## Open Questions
 
-- what is the best practical implementation path for Twitter/X list ingestion in V1
-- what is the best practical implementation path for WeChat account ingestion in V1
-- when should Home be implemented relative to Inbox
+- what is the best practical implementation path for Twitter/X list ingestion after RSS and manual link capture
+- what is the best practical implementation path for WeChat ingestion after the new model is in place
+- when should Knowledge page be implemented relative to Digest
 
 ## Change Notes
 
@@ -216,3 +258,9 @@ The first slice is successful if:
 - product direction finalized for the pilot project
 - architecture, data model, and implementation direction were documented
 - project documentation intentionally kept to a minimal 4-file set for the pilot phase
+
+### 2026-04-12
+
+- the architecture is organized around Capture, Knowledge, and Review
+- the implementation model is organized around the layered information lifecycle
+- implementation planning was updated to reflect the new capture and knowledge model

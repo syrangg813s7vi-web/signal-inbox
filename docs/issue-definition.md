@@ -43,7 +43,8 @@ Acceptance criteria should be observable and testable.
 Good examples:
 
 - a user can create an RSS source from the Sources page
-- a sync job stores RSS entries as Items
+- a sync job stores RSS entries as CaptureEntry and RawAsset records
+- RawAssets are normalized into Items
 - processed Items appear in Inbox
 - a Digest record is generated for the current day
 
@@ -72,6 +73,11 @@ The normal condition for `In Review` is:
 - focused commit created
 - branch pushed
 - PR or review handoff prepared
+
+If the issue changes a runnable website or app surface, `In Review` also requires:
+
+- the site starts successfully in the current workspace
+- the handoff includes the concrete local URL for human review
 
 Blocked work should remain blocked rather than being advanced to a review or done state.
 
@@ -107,3 +113,7 @@ What must remain unchanged?
 ### Acceptance Criteria
 
 What observable results define completion?
+
+For web-facing issues, include a criterion equivalent to:
+
+- the site starts successfully and a review URL is provided

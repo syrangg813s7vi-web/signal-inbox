@@ -2,6 +2,19 @@
 
 This repository is the active root for the Signal Inbox pilot project.
 
+Signal Inbox is structured around three product domains:
+
+- `Capture`
+- `Knowledge`
+- `Review`
+
+The implementation follows four stable layers:
+
+- `Capture Layer`
+- `Normalization Layer`
+- `Knowledge Layer`
+- `Review Layer`
+
 Current focus:
 
 - keep the project docs here

@@ -93,30 +93,33 @@ Follow the repository conventions in `docs/development-style.md`.
 3. Treat Linear state transitions as part of the handoff, not as optional metadata.
 4. Use `In Progress` only while the issue is actively being implemented or validated in a workspace.
 5. Move work to `In Review` only when the acceptance criteria are met and the branch is ready for human review.
-6. Do not treat local changes alone as review-ready. The expected review handoff is:
+6. For work that changes or adds a runnable web path, do not move to `In Review` until the site has been started successfully and the handoff includes a concrete local access URL.
+7. Do not treat local changes alone as review-ready. The expected review handoff is:
    - branch created
    - focused commit created
    - branch pushed
    - PR prepared or opened for human review
-7. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
-8. Prefer creating a draft PR unless the issue explicitly says the work is ready for a non-draft review handoff.
-9. Treat "branch pushed but no PR created" as an incomplete handoff, not as success.
-10. Include the PR URL in the final handoff summary whenever a PR is created.
-11. If `gh` is authenticated, explicitly run `gh pr create` for the issue branch instead of assuming another system will open the PR later.
-12. If PR creation fails, report the command failure clearly, keep the issue out of review-ready state, and explain the blocker in the final handoff.
-13. Do not mark work as `Done` from the agent workflow. `Done` is reserved for human-reviewed and accepted work.
-14. If the issue is blocked, explain the blocker clearly and leave the work classified as blocked instead of pretending it is complete.
-15. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
-16. Keep changes incremental and aligned with current repository terminology.
-17. Validate the affected path before stopping.
-18. If the acceptance criteria are met, stage the intended files and create a focused git commit.
-19. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
-20. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
-21. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
-22. Summarize:
+8. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
+9. Prefer creating a draft PR unless the issue explicitly says the work is ready for a non-draft review handoff.
+10. Treat "branch pushed but no PR created" as an incomplete handoff, not as success.
+11. Include the PR URL in the final handoff summary whenever a PR is created.
+12. If `gh` is authenticated, explicitly run `gh pr create` for the issue branch instead of assuming another system will open the PR later.
+13. If PR creation fails, report the command failure clearly, keep the issue out of review-ready state, and explain the blocker in the final handoff.
+14. Do not mark work as `Done` from the agent workflow. `Done` is reserved for human-reviewed and accepted work.
+15. If the issue is blocked, explain the blocker clearly and leave the work classified as blocked instead of pretending it is complete.
+16. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
+17. Keep changes incremental and aligned with current repository terminology.
+18. Validate the affected path before stopping.
+19. If the acceptance criteria are met, stage the intended files and create a focused git commit.
+20. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
+21. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
+22. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
+23. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
+   - whether the site was started successfully
+   - the local URL used for review, if applicable
    - whether the work was committed
    - whether the branch is ready for PR / human review
    - whether a PR was created
@@ -128,11 +131,24 @@ Follow the repository conventions in `docs/development-style.md`.
 
 - Keep Home minimal and result-first.
 - Keep Inbox as the primary work surface.
+- Treat the product as a three-domain system:
+  - `Capture`
+  - `Knowledge`
+  - `Review`
+- Keep implementation aligned with four stable layers:
+  - `Capture Layer`
+  - `Normalization Layer`
+  - `Knowledge Layer`
+  - `Review Layer`
+- All inputs must enter through shared capture and normalization paths.
 - Keep the V1 fixed processing order:
+  - `score`
   - `dedupe`
   - `summarize`
   - `classify`
   - `group`
+- Treat `Note` creation and knowledge sink sync as part of the Knowledge Layer, not generic delivery.
+- Treat review generation and reminder selection as part of the Review Layer.
 - Do not bypass the shared `Item` model.
 - Do not mix connector logic, processor logic, delivery logic, and UI logic in the same place.
 - Normal implementation handoff is:
@@ -150,6 +166,7 @@ Follow the repository conventions in `docs/development-style.md`.
   - `In Review`
   - `Done`
 - Use `In Review` only for work that is already ready for human inspection and has a reviewable PR URL.
+- For web-facing changes, `In Review` also requires a running local site and a concrete URL included in the handoff.
 - Leave blocked work in a non-terminal blocked state instead of moving it forward prematurely.
 - Direct commits to `main` should be reserved for explicitly requested repository maintenance or documentation-only exceptions.
 - Before stopping, classify the issue as exactly one of:

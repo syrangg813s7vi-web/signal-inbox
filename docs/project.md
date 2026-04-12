@@ -1,5 +1,36 @@
 # Project
 
+## Architecture Declaration
+
+Signal Inbox is a personal AI system built around the full information lifecycle.
+
+Its job is to support this lifecycle:
+
+`capture -> understand -> preserve -> revisit`
+
+The product is organized around three long-term value domains:
+
+- `Capture`
+- `Knowledge`
+- `Review`
+
+The implementation is organized around four stable layers:
+
+- `Capture Layer`
+- `Normalization Layer`
+- `Knowledge Layer`
+- `Review Layer`
+
+Supporting capabilities such as `Delivery` and `Web` exist to serve those domains and layers, not to replace them.
+
+Long-term architecture rules:
+
+1. all inputs must enter the system through shared capture and normalization paths
+2. knowledge preservation and lightweight delivery must remain separate concepts
+3. review must depend on processed or preserved objects, not on raw input directly
+4. web surfaces display results and actions, but do not own the core processing logic
+5. future capabilities should extend the existing domains and layers rather than creating disconnected special cases
+
 ## One-line Positioning
 
 Signal Inbox is a personal AI system for capture, knowledge building, and review.
