@@ -78,6 +78,8 @@ If the issue changes a runnable website or app surface, `In Review` also require
 
 - the site is available through a Vercel preview deployment
 - the handoff includes the concrete Vercel preview URL for human review
+- the affected preview route is validated directly, not inferred only from typecheck, build, or deployment status
+- the primary user path for the issue works in the preview environment
 
 Blocked work should remain blocked rather than being advanced to a review or done state.
 
@@ -117,3 +119,5 @@ What observable results define completion?
 For web-facing issues, include a criterion equivalent to:
 
 - the Vercel preview deployment is available and a review URL is provided
+- the affected preview route loads successfully
+- the primary user action path works in preview

@@ -94,27 +94,28 @@ Follow the repository conventions in `docs/development-style.md`.
 4. Use `In Progress` only while the issue is actively being implemented or validated in a workspace.
 5. Move work to `In Review` only when the acceptance criteria are met and the branch is ready for human review.
 6. For work that changes or adds a runnable web path, do not move to `In Review` until the site is available through a Vercel preview deployment and the handoff includes the concrete preview URL.
-7. Do not treat local changes alone as review-ready. The expected review handoff is:
+7. For web-facing work, do not treat green typecheck, build, or deployment checks as sufficient proof of correctness on their own. Validate the affected preview route directly before review handoff.
+8. Do not treat local changes alone as review-ready. The expected review handoff is:
    - branch created
    - focused commit created
    - branch pushed
    - PR prepared or opened for human review
-8. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
-9. Prefer creating a draft PR unless the issue explicitly says the work is ready for a non-draft review handoff.
-10. Treat "branch pushed but no PR created" as an incomplete handoff, not as success.
-11. Include the PR URL in the final handoff summary whenever a PR is created.
-12. If `gh` is authenticated, explicitly run `gh pr create` for the issue branch instead of assuming another system will open the PR later.
-13. If PR creation fails, report the command failure clearly, keep the issue out of review-ready state, and explain the blocker in the final handoff.
-14. Do not mark work as `Done` from the agent workflow. `Done` is reserved for human-reviewed and accepted work.
-15. If the issue is blocked, explain the blocker clearly and leave the work classified as blocked instead of pretending it is complete.
-16. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
-17. Keep changes incremental and aligned with current repository terminology.
-18. Validate the affected path before stopping.
-19. If the acceptance criteria are met, stage the intended files and create a focused git commit.
-20. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
-21. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
-22. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
-23. Summarize:
+9. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
+10. Prefer creating a draft PR unless the issue explicitly says the work is ready for a non-draft review handoff.
+11. Treat "branch pushed but no PR created" as an incomplete handoff, not as success.
+12. Include the PR URL in the final handoff summary whenever a PR is created.
+13. If `gh` is authenticated, explicitly run `gh pr create` for the issue branch instead of assuming another system will open the PR later.
+14. If PR creation fails, report the command failure clearly, keep the issue out of review-ready state, and explain the blocker in the final handoff.
+15. Do not mark work as `Done` from the agent workflow. `Done` is reserved for human-reviewed and accepted work.
+16. If the issue is blocked, explain the blocker clearly and leave the work classified as blocked instead of pretending it is complete.
+17. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
+18. Keep changes incremental and aligned with current repository terminology.
+19. Validate the affected path before stopping.
+20. If the acceptance criteria are met, stage the intended files and create a focused git commit.
+21. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
+22. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
+23. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
+24. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
@@ -167,6 +168,12 @@ Follow the repository conventions in `docs/development-style.md`.
   - `Done`
 - Use `In Review` only for work that is already ready for human inspection and has a reviewable PR URL.
 - For web-facing changes, `In Review` also requires a Vercel preview deployment URL included in the handoff.
+- For web-facing changes, `In Review` also requires direct preview validation of the affected route or feature, not only passing checks.
+- Minimum direct preview validation means:
+  - the affected preview route loads successfully
+  - the route does not fail with runtime or server-render errors
+  - the issue's primary user action path works in the preview environment
+- The handoff must state exactly which preview route and which user action path were validated.
 - Leave blocked work in a non-terminal blocked state instead of moving it forward prematurely.
 - Direct commits to `main` should be reserved for explicitly requested repository maintenance or documentation-only exceptions.
 - Before stopping, classify the issue as exactly one of:
