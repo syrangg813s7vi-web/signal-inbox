@@ -10,6 +10,7 @@ import {
   SourceNotFoundError,
 } from "./index";
 
+import { createDbFromClient, createSqlClient, sources } from "../../db/src";
 import { runMigrations } from "../../db/src/migrate";
 import { startTemporaryPostgres } from "../../db/src/testing";
 
@@ -110,6 +111,35 @@ async function runCaptureSmokeTest(databaseUrl: string) {
 
   const sourcesAfterDelete = await listRssSources(databaseUrl);
   assert.equal(sourcesAfterDelete.length, 0);
+
+  const orphanedSourceId = randomUUID();
+  const sqlClient = createSqlClient(databaseUrl);
+  const db = createDbFromClient(sqlClient);
+
+  try {
+    await db.insert(sources).values({
+      id: orphanedSourceId,
+      name: "Legacy RSS Feed",
+      sourceRef: `https://example.com/legacy-${randomUUID()}.xml`,
+      sourceType: "rss",
+      sourceUrl: `https://example.com/legacy-${randomUUID()}.xml`,
+      status: "active",
+    });
+  } finally {
+    await sqlClient.end();
+  }
+
+  const legacyListedSource = (await listRssSources(databaseUrl)).find(
+    (source) => source.id === orphanedSourceId,
+  );
+  assert.notEqual(legacyListedSource, undefined);
+  assert.notEqual(legacyListedSource?.syncState, null);
+
+  const pausedLegacySource = await pauseSource(orphanedSourceId, databaseUrl);
+  assert.equal(pausedLegacySource.status, "paused");
+  assert.notEqual(pausedLegacySource.syncState, null);
+
+  await deleteSource(orphanedSourceId, databaseUrl);
 }
 
 async function expectSourceValidationError(

@@ -48,6 +48,8 @@ export async function listRssSources(databaseUrl?: string): Promise<RssSourceRec
   const db = createDbFromClient(client);
 
   try {
+    await backfillMissingSyncStateRows(client);
+
     const rows = await db
       .select(sourceSelection)
       .from(sources)
@@ -166,6 +168,8 @@ async function updateSourceStatus(
   const now = new Date();
 
   try {
+    await ensureSourceSyncStateRow(client, sourceId);
+
     const [updatedSource] = await db
       .update(sources)
       .set({
@@ -226,6 +230,33 @@ function normalizeSourceUrl(sourceUrl: string): string {
 
 function buildSourceRef(sourceUrl: string): string {
   return sourceUrl;
+}
+
+async function backfillMissingSyncStateRows(client: ReturnType<typeof createSqlClient>) {
+  await client`
+    insert into "source_sync_state" ("source_id")
+    select "sources"."id"
+    from "sources"
+    left join "source_sync_state"
+      on "source_sync_state"."source_id" = "sources"."id"
+    where "sources"."source_type" = 'rss'
+      and "source_sync_state"."source_id" is null
+    on conflict ("source_id") do nothing
+  `;
+}
+
+async function ensureSourceSyncStateRow(
+  client: ReturnType<typeof createSqlClient>,
+  sourceId: string,
+) {
+  await client`
+    insert into "source_sync_state" ("source_id")
+    select "sources"."id"
+    from "sources"
+    where "sources"."id" = ${sourceId}
+      and "sources"."source_type" = 'rss'
+    on conflict ("source_id") do nothing
+  `;
 }
 
 const sourceSelection = {
