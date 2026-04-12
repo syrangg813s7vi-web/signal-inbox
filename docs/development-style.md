@@ -283,7 +283,7 @@ Recommended log context fields:
 Logging rules by layer:
 
 - connectors log source-specific sync context
-- processors log processing failures and major transitions
+- knowledge modules log processing failures and major transitions
 - delivery logs should complement, not replace, application logs
 - UI components should avoid noisy console logging
 
@@ -378,7 +378,7 @@ Examples:
 
 - `feat(sources): add RSS source creation flow`
 - `feat(inbox): render processed item cards`
-- `fix(processors): prevent duplicate item grouping`
+- `fix(knowledge): prevent duplicate item grouping`
 - `docs(project): clarify MVP source types`
 - `refactor(delivery): split notion adapter formatting`
 - `chore(repo): add pnpm workspace config`
@@ -500,14 +500,17 @@ If validation cannot be completed, note that clearly in the final summary or fol
 - `web`
 - `home`
 - `inbox`
+- `knowledge`
 - `digest`
 - `sources`
-- `destinations`
 - `settings`
 - `db`
+- `capture`
 - `connectors`
-- `processors`
+- `normalization`
+- `knowledge`
 - `delivery`
+- `review`
 - `jobs`
 - `docs`
 - `project`
