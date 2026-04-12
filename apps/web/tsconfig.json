@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"],
+      "@signal-inbox/ai": ["../../packages/ai/src/index.ts"],
+      "@signal-inbox/capture": ["../../packages/capture/src/index.ts"],
+      "@signal-inbox/connectors": ["../../packages/connectors/src/index.ts"],
+      "@signal-inbox/core": ["../../packages/core/src/index.ts"],
+      "@signal-inbox/db": ["../../packages/db/src/index.ts"],
+      "@signal-inbox/delivery": ["../../packages/delivery/src/index.ts"],
+      "@signal-inbox/knowledge": ["../../packages/knowledge/src/index.ts"],
+      "@signal-inbox/normalization": ["../../packages/normalization/src/index.ts"],
+      "@signal-inbox/review": ["../../packages/review/src/index.ts"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

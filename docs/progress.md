@@ -10,6 +10,7 @@ The project now has:
 - a four-layer implementation model
 - a revised data model for capture, normalization, knowledge, and review
 - a clear V1 boundary
+- an initial monorepo scaffold plan for `apps/web` and shared packages
 
 The next step is implementation through staged vertical slices.
 
@@ -178,7 +179,7 @@ Phase 4 is complete when:
 3. implement the first working capture path
 4. implement normalization into Item
 5. render the first usable Inbox view
-6. validate the first capture-to-inbox slice end to end
+6. validate the first capture-to-inbox slice
 
 ## Confirmed Decisions
 
@@ -253,14 +254,13 @@ The first slice is successful if:
 
 ## Change Notes
 
+### 2026-04-12
+
+- repository scaffolding is now the active first implementation task in Phase 1
+- the planned repository shape is a pnpm monorepo with `apps/web` and shared `packages/*` boundaries
+
 ### 2026-04-10
 
 - product direction finalized for the pilot project
 - architecture, data model, and implementation direction were documented
 - project documentation intentionally kept to a minimal 4-file set for the pilot phase
-
-### 2026-04-12
-
-- the architecture is organized around Capture, Knowledge, and Review
-- the implementation model is organized around the layered information lifecycle
-- implementation planning was updated to reflect the new capture and knowledge model
