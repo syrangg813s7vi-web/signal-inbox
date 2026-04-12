@@ -208,6 +208,7 @@ async function startTempPostgres(): Promise<TempPostgresInstance> {
   const logFile = path.join(tempRoot, "postgres.log");
   const port = await getFreePort();
   const databaseName = "signal_inbox_smoke";
+  let postgresStarted = false;
 
   try {
     await execFile("initdb", ["-D", dataDir, "-A", "trust", "-U", "postgres"], {
@@ -216,6 +217,7 @@ async function startTempPostgres(): Promise<TempPostgresInstance> {
     await execFile("pg_ctl", ["-D", dataDir, "-l", logFile, "-o", `-F -p ${port}`, "start"], {
       env: process.env,
     });
+    postgresStarted = true;
     await execFile("createdb", ["-h", "127.0.0.1", "-p", String(port), "-U", "postgres", databaseName], {
       env: process.env,
     });
@@ -233,6 +235,15 @@ async function startTempPostgres(): Promise<TempPostgresInstance> {
       databaseUrl: `postgresql://postgres@127.0.0.1:${port}/${databaseName}`,
     };
   } catch (error) {
+    if (postgresStarted) {
+      try {
+        await execFile("pg_ctl", ["-D", dataDir, "stop", "-m", "fast"], {
+          env: process.env,
+        });
+      } catch {
+        // Best effort cleanup for partial startup failures.
+      }
+    }
     await rm(tempRoot, { force: true, recursive: true });
     throw error;
   }
