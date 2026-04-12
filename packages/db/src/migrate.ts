@@ -10,6 +10,8 @@ const migrationsFolder = path.resolve(path.dirname(fileURLToPath(import.meta.url
 
 export interface RunMigrationsOptions extends Omit<MigrationConfig, "migrationsFolder"> {}
 
+type SqlExecutor = Pick<ReturnType<typeof createSqlClient>, "unsafe">;
+
 export async function runMigrations(
   databaseUrl = process.env.DATABASE_URL,
   options: RunMigrationsOptions = {},
@@ -38,7 +40,7 @@ export async function runMigrations(
         }
 
         for (const statement of migration.sql) {
-          await transaction.unsafe(statement);
+          await executeMigrationStatement(transaction, statement);
         }
 
         await transaction.unsafe(
@@ -89,6 +91,49 @@ async function readLastMigration(
   );
 
   return rows[0];
+}
+
+async function executeMigrationStatement(client: SqlExecutor, statement: string) {
+  try {
+    await client.unsafe(statement);
+  } catch (error) {
+    if (!(await canSkipPgcryptoExtensionError(client, statement, error))) {
+      throw error;
+    }
+  }
+}
+
+async function canSkipPgcryptoExtensionError(
+  client: SqlExecutor,
+  statement: string,
+  error: unknown,
+) {
+  if (!isPgcryptoExtensionStatement(statement)) {
+    return false;
+  }
+
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String(error.code)
+      : null;
+
+  if (code !== "42501") {
+    return false;
+  }
+
+  return hasGenRandomUuidFunction(client);
+}
+
+async function hasGenRandomUuidFunction(client: SqlExecutor) {
+  const [row] = await client.unsafe<Array<{ exists: boolean }>>(
+    "select to_regproc('gen_random_uuid') is not null as exists",
+  );
+
+  return row?.exists ?? false;
+}
+
+function isPgcryptoExtensionStatement(statement: string) {
+  return /^create extension if not exists "pgcrypto";?$/i.test(statement.trim());
 }
 
 function qualifiedName(schemaName: string, tableName: string) {
