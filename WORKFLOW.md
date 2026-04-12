@@ -28,6 +28,8 @@ codex:
   command: codex app-server
   approval_policy: never
   thread_sandbox: danger-full-access
+  turn_sandbox_policy:
+    type: dangerFullAccess
 ---
 
 {% if attempt %}
