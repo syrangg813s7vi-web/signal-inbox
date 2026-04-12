@@ -1,0 +1,20 @@
+{
+  "name": "signal-inbox",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @signal-inbox/web dev",
+    "build": "pnpm --filter @signal-inbox/web build",
+    "start": "pnpm --filter @signal-inbox/web start",
+    "typecheck": "pnpm --filter @signal-inbox/web typecheck",
+    "check": "pnpm typecheck && pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "typescript": "5.9.3"
+  }
+}
