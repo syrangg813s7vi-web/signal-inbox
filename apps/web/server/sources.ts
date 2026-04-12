@@ -17,7 +17,18 @@ export interface SourcesPageViewModel {
   >;
 }
 
-type StorageUnavailableKind = "configuration" | "connection" | "schema" | "unknown";
+type StorageUnavailableKind =
+  | "bootstrap"
+  | "configuration"
+  | "connection"
+  | "schema"
+  | "unknown";
+
+class SourceStorageBootstrapError extends Error {
+  constructor(cause: unknown) {
+    super("Source storage bootstrap failed.", { cause });
+  }
+}
 
 const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
@@ -60,8 +71,8 @@ export async function withSourceStorageReady<T>(operation: () => Promise<T>): Pr
     if (getStorageUnavailableKind(error) === "schema" && shouldAttemptPreviewSchemaBootstrap()) {
       try {
         await ensureSourceStorageSchema();
-      } catch {
-        throw error;
+      } catch (bootstrapError) {
+        throw new SourceStorageBootstrapError(bootstrapError);
       }
 
       return operation();
@@ -175,6 +186,10 @@ export function isStorageUnavailableError(error: unknown): boolean {
 
 function getStorageUnavailableKind(error: unknown): StorageUnavailableKind | null {
   for (const candidate of walkErrorChain(error)) {
+    if (candidate.code === "42501") {
+      return "bootstrap";
+    }
+
     if (
       candidate.code === "42P01" ||
       candidate.code === "3F000" ||
@@ -192,6 +207,10 @@ function getStorageUnavailableKind(error: unknown): StorageUnavailableKind | nul
     }
 
     const message = candidate.message.toLowerCase();
+
+    if (message.includes("source storage bootstrap failed")) {
+      return "bootstrap";
+    }
 
     if (message.includes("database_url must be set")) {
       return "configuration";
@@ -223,9 +242,13 @@ function getStorageUnavailableKind(error: unknown): StorageUnavailableKind | nul
       message.includes("tls") ||
       message.includes("server closed the connection unexpectedly") ||
       message.includes("password authentication failed") ||
-      message.includes("no pg_hba.conf entry")
+      message.includes("no pg_hba.conf entry") ||
+      message.includes("permission denied") ||
+      message.includes("must be owner of")
     ) {
-      return "connection";
+      return message.includes("permission denied") || message.includes("must be owner of")
+        ? "bootstrap"
+        : "connection";
     }
   }
 
@@ -233,6 +256,10 @@ function getStorageUnavailableKind(error: unknown): StorageUnavailableKind | nul
 }
 
 function getUnavailableReason(kind: StorageUnavailableKind): string {
+  if (kind === "bootstrap") {
+    return "Source storage is configured, but automatic preview migration bootstrap failed. Run the database migrations for this environment or grant the preview database user permission to create the required schema objects.";
+  }
+
   if (kind === "configuration") {
     return "Source storage is unavailable because this environment is missing a valid DATABASE_URL.";
   }
