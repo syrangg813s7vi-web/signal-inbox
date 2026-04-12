@@ -36,8 +36,13 @@ Do not introduce alternative names such as:
 
 - `Document` for `Item`
 - `Feed` for `Source`
-- `Destination` as a catch-all name for both knowledge preservation and lightweight delivery
+- `Destination` as a single catch-all name for both knowledge preservation and lightweight delivery
 - `Artifact` for a core content object
+
+Use:
+
+- `KnowledgeDestination` for knowledge sinks
+- `DeliveryDestination` for lightweight outbound channels
 
 ## TypeScript Style
 
