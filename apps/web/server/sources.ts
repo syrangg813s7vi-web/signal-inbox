@@ -16,6 +16,8 @@ export interface SourcesPageViewModel {
   >;
 }
 
+type StorageUnavailableKind = "configuration" | "connection" | "schema" | "unknown";
+
 const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -34,11 +36,12 @@ export async function getSourcesPageViewModel(): Promise<SourcesPageViewModel> {
       })),
     };
   } catch (error) {
-    if (isStorageUnavailableError(error)) {
+    const storageUnavailableKind = getStorageUnavailableKind(error);
+
+    if (storageUnavailableKind !== null) {
       return {
         isAvailable: false,
-        unavailableReason:
-          "Source storage is unavailable in this environment. Configure the database to create, list, pause, or reactivate RSS sources.",
+        unavailableReason: getUnavailableReason(storageUnavailableKind),
         sources: [],
       };
     }
@@ -132,14 +135,21 @@ function formatTimestamp(value: Date): string {
 }
 
 export function isStorageUnavailableError(error: unknown): boolean {
+  return getStorageUnavailableKind(error) !== null;
+}
+
+function getStorageUnavailableKind(error: unknown): StorageUnavailableKind | null {
   for (const candidate of walkErrorChain(error)) {
     if (
-      candidate.code === "ERR_INVALID_URL" ||
       candidate.code === "42P01" ||
       candidate.code === "3F000" ||
       candidate.code === "42704"
     ) {
-      return true;
+      return "schema";
+    }
+
+    if (candidate.code === "ERR_INVALID_URL") {
+      return "configuration";
     }
 
     if (typeof candidate.message !== "string") {
@@ -149,11 +159,23 @@ export function isStorageUnavailableError(error: unknown): boolean {
     const message = candidate.message.toLowerCase();
 
     if (message.includes("database_url must be set")) {
-      return true;
+      return "configuration";
+    }
+
+    if (message.includes("invalid url")) {
+      return "configuration";
     }
 
     if (
-      message.includes("invalid url") ||
+      message.includes("relation \"sources\" does not exist") ||
+      message.includes("relation \"source_sync_state\" does not exist") ||
+      message.includes("type \"source_type\" does not exist") ||
+      message.includes("type \"source_status\" does not exist")
+    ) {
+      return "schema";
+    }
+
+    if (
       message.includes("connect") ||
       message.includes("connection terminated") ||
       message.includes("connection refused") ||
@@ -166,17 +188,29 @@ export function isStorageUnavailableError(error: unknown): boolean {
       message.includes("tls") ||
       message.includes("server closed the connection unexpectedly") ||
       message.includes("password authentication failed") ||
-      message.includes("no pg_hba.conf entry") ||
-      message.includes("relation \"sources\" does not exist") ||
-      message.includes("relation \"source_sync_state\" does not exist") ||
-      message.includes("type \"source_type\" does not exist") ||
-      message.includes("type \"source_status\" does not exist")
+      message.includes("no pg_hba.conf entry")
     ) {
-      return true;
+      return "connection";
     }
   }
 
-  return false;
+  return null;
+}
+
+function getUnavailableReason(kind: StorageUnavailableKind): string {
+  if (kind === "configuration") {
+    return "Source storage is unavailable because this environment is missing a valid DATABASE_URL.";
+  }
+
+  if (kind === "schema") {
+    return "Source storage is configured, but the source tables or enums are missing. Run the database migrations for this environment.";
+  }
+
+  if (kind === "connection") {
+    return "Source storage is configured, but the database connection failed in this environment.";
+  }
+
+  return "Source storage is unavailable in this environment. Configure the database to create, list, pause, or reactivate RSS sources.";
 }
 
 function* walkErrorChain(error: unknown): Generator<{ code?: string; message?: string }> {
