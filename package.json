@@ -10,9 +10,9 @@
   "scripts": {
     "dev:services": "docker compose up -d",
     "dev:services:stop": "docker compose down",
-    "dev": "pnpm --filter @signal-inbox/web dev",
-    "build": "pnpm --filter @signal-inbox/web build",
-    "start": "pnpm --filter @signal-inbox/web start",
+    "dev": "node scripts/run-web-command.mjs dev",
+    "build": "node scripts/run-web-command.mjs build",
+    "start": "node scripts/run-web-command.mjs start",
     "typecheck": "pnpm -r typecheck",
     "validate": "pnpm typecheck && pnpm build"
   },
