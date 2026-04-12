@@ -133,7 +133,12 @@ function formatTimestamp(value: Date): string {
 
 export function isStorageUnavailableError(error: unknown): boolean {
   for (const candidate of walkErrorChain(error)) {
-    if (candidate.code === "ERR_INVALID_URL") {
+    if (
+      candidate.code === "ERR_INVALID_URL" ||
+      candidate.code === "42P01" ||
+      candidate.code === "3F000" ||
+      candidate.code === "42704"
+    ) {
       return true;
     }
 
@@ -161,7 +166,11 @@ export function isStorageUnavailableError(error: unknown): boolean {
       message.includes("tls") ||
       message.includes("server closed the connection unexpectedly") ||
       message.includes("password authentication failed") ||
-      message.includes("no pg_hba.conf entry")
+      message.includes("no pg_hba.conf entry") ||
+      message.includes("relation \"sources\" does not exist") ||
+      message.includes("relation \"source_sync_state\" does not exist") ||
+      message.includes("type \"source_type\" does not exist") ||
+      message.includes("type \"source_status\" does not exist")
     ) {
       return true;
     }
