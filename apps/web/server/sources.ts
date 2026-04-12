@@ -132,18 +132,72 @@ function formatTimestamp(value: Date): string {
 }
 
 export function isStorageUnavailableError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
+  for (const candidate of walkErrorChain(error)) {
+    if (candidate.code === "ERR_INVALID_URL") {
+      return true;
+    }
+
+    if (typeof candidate.message !== "string") {
+      continue;
+    }
+
+    const message = candidate.message.toLowerCase();
+
+    if (message.includes("database_url must be set")) {
+      return true;
+    }
+
+    if (
+      message.includes("invalid url") ||
+      message.includes("connect") ||
+      message.includes("connection terminated") ||
+      message.includes("connection refused") ||
+      message.includes("timed out") ||
+      message.includes("timeout") ||
+      message.includes("enotfound") ||
+      message.includes("econnrefused") ||
+      message.includes("etimedout") ||
+      message.includes("certificate") ||
+      message.includes("tls") ||
+      message.includes("server closed the connection unexpectedly") ||
+      message.includes("password authentication failed") ||
+      message.includes("no pg_hba.conf entry")
+    ) {
+      return true;
+    }
   }
 
-  if (error.message.includes("DATABASE_URL must be set")) {
-    return true;
-  }
+  return false;
+}
 
-  return (
-    error.message.includes("connect") ||
-    error.message.includes("Connection terminated") ||
-    error.message.includes("ECONNREFUSED") ||
-    error.message.includes("ENOTFOUND")
-  );
+function* walkErrorChain(error: unknown): Generator<{ code?: string; message?: string }> {
+  let current = error;
+  const seen = new Set<unknown>();
+
+  while (current && !seen.has(current)) {
+    seen.add(current);
+
+    if (typeof current === "object" && current !== null) {
+      const candidate = current as {
+        cause?: unknown;
+        code?: string;
+        message?: string;
+      };
+
+      yield {
+        code: candidate.code,
+        message: candidate.message,
+      };
+
+      current = candidate.cause;
+      continue;
+    }
+
+    if (typeof current === "string") {
+      yield { message: current };
+      return;
+    }
+
+    return;
+  }
 }
