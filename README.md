@@ -45,6 +45,10 @@ Run the capture-to-inbox schema smoke test with:
 
 `pnpm db:smoke`
 
+Run the RSS source CRUD smoke test with:
+
+`pnpm capture:smoke`
+
 The smoke test runs the real `@signal-inbox/db` migration entrypoint and then inserts the minimal V1 chain:
 
 `Source -> CaptureEntry -> RawAsset -> Item -> Enrichment -> ItemGroup -> ItemGroupMember`

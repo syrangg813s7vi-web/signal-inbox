@@ -13,7 +13,8 @@
     "db:generate": "pnpm --filter @signal-inbox/db db:generate",
     "db:migrate": "pnpm --filter @signal-inbox/db db:migrate",
     "db:smoke": "pnpm --filter @signal-inbox/db db:smoke",
-    "typecheck": "pnpm --filter @signal-inbox/web typecheck && pnpm --filter @signal-inbox/db typecheck",
+    "capture:smoke": "pnpm --filter @signal-inbox/capture capture:smoke",
+    "typecheck": "pnpm --filter @signal-inbox/web typecheck && pnpm --filter @signal-inbox/db typecheck && pnpm --filter @signal-inbox/capture typecheck",
     "check": "pnpm typecheck && pnpm build"
   },
   "devDependencies": {

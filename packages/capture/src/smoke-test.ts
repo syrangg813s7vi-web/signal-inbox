@@ -1,0 +1,120 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+
+import {
+  createRssSource,
+  listRssSources,
+  pauseSource,
+  reactivateSource,
+} from "./index";
+
+import { runMigrations } from "../../db/src/migrate";
+import { startTemporaryPostgres } from "../../db/src/testing";
+
+async function main() {
+  const temporaryPostgres = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
+  const databaseUrl = temporaryPostgres?.databaseUrl ?? process.env.DATABASE_URL;
+
+  assert.ok(databaseUrl, "DATABASE_URL must be set or a temporary PostgreSQL instance must start.");
+
+  try {
+    await runMigrations(databaseUrl);
+    await runCaptureSmokeTest(databaseUrl);
+    console.log("Capture smoke test passed.");
+  } finally {
+    await temporaryPostgres?.cleanup();
+  }
+}
+
+async function runCaptureSmokeTest(databaseUrl: string) {
+  const sourceUrl = `https://example.com/feed-${randomUUID()}.xml`;
+
+  const createdSource = await createRssSource(
+    {
+      name: "AI Research Feed",
+      sourceUrl,
+      topic: "AI",
+    },
+    databaseUrl,
+  );
+
+  assert.equal(createdSource.status, "active");
+  assert.equal(createdSource.sourceUrl, sourceUrl);
+  assert.notEqual(createdSource.syncState, null);
+  assert.equal(createdSource.syncState?.lastSyncedAt ?? null, null);
+
+  const sourcesAfterCreate = await listRssSources(databaseUrl);
+  assert.equal(sourcesAfterCreate.length, 1);
+  assert.equal(sourcesAfterCreate[0]?.id, createdSource.id);
+  assert.equal(sourcesAfterCreate[0]?.status, "active");
+  assert.notEqual(sourcesAfterCreate[0]?.syncState, null);
+
+  await pauseSource(createdSource.id, databaseUrl);
+  const sourcesAfterPause = await listRssSources(databaseUrl);
+  assert.equal(sourcesAfterPause[0]?.status, "paused");
+  assert.notEqual(sourcesAfterPause[0]?.syncState, null);
+
+  await reactivateSource(createdSource.id, databaseUrl);
+  const sourcesAfterReactivate = await listRssSources(databaseUrl);
+  assert.equal(sourcesAfterReactivate[0]?.status, "active");
+  assert.notEqual(sourcesAfterReactivate[0]?.syncState, null);
+
+  await expectSourceValidationError(
+    () =>
+      createRssSource(
+        {
+          name: "Invalid Feed",
+          sourceUrl: "ftp://example.com/feed.xml",
+        },
+        databaseUrl,
+      ),
+    "RSS URLs must use http or https.",
+  );
+
+  await expectSourceConflictError(
+    () =>
+      createRssSource(
+        {
+          name: "Duplicate Feed",
+          sourceUrl,
+        },
+        databaseUrl,
+      ),
+    "That RSS source is already registered.",
+  );
+}
+
+async function expectSourceValidationError(
+  operation: () => Promise<unknown>,
+  expectedMessage: string,
+) {
+  try {
+    await operation();
+  } catch (error) {
+    assert.equal(readErrorMessage(error), expectedMessage);
+    return;
+  }
+
+  assert.fail(`Expected SourceValidationError with message: ${expectedMessage}`);
+}
+
+async function expectSourceConflictError(operation: () => Promise<unknown>, expectedMessage: string) {
+  try {
+    await operation();
+  } catch (error) {
+    assert.equal(readErrorMessage(error), expectedMessage);
+    return;
+  }
+
+  assert.fail(`Expected SourceConflictError with message: ${expectedMessage}`);
+}
+
+function readErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+await main();

@@ -33,6 +33,7 @@ export interface CreateRssSourceInput {
 }
 
 type PostgresErrorLike = Error & {
+  cause?: unknown;
   code?: string;
   constraint?: string;
   constraint_name?: string;
@@ -140,7 +141,7 @@ export async function createRssSource(
       },
     };
   } catch (error) {
-    const postgresError = error as PostgresErrorLike;
+    const postgresError = unwrapPostgresError(error);
 
     if (
       postgresError.code === "23505" &&
@@ -238,4 +239,20 @@ function normalizeSourceUrl(sourceUrl: string): string {
 
 function buildSourceRef(sourceUrl: string): string {
   return sourceUrl;
+}
+
+function unwrapPostgresError(error: unknown): PostgresErrorLike {
+  let current = error;
+
+  while (current && typeof current === "object") {
+    const postgresError = current as PostgresErrorLike;
+
+    if (postgresError.code || postgresError.constraint || postgresError.constraint_name) {
+      return postgresError;
+    }
+
+    current = postgresError.cause;
+  }
+
+  return (error as PostgresErrorLike) ?? new Error("Unknown PostgreSQL error.");
 }
