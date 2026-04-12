@@ -1,5 +1,5 @@
 import { listRssSources, type RssSourceRecord } from "@signal-inbox/capture";
-import { bootstrapSourceStorageSchema } from "@signal-inbox/db";
+import { bootstrapSourceStorageSchema, createSqlClient } from "@signal-inbox/db";
 
 export interface SourceStatusViewModel {
   badgeLabel: string;
@@ -30,6 +30,13 @@ class SourceStorageBootstrapError extends Error {
   }
 }
 
+interface PreviewStorageProbeResult {
+  publicCreate: boolean;
+  publicUsage: boolean;
+  sourcesExists: boolean;
+  sourceSyncStateExists: boolean;
+}
+
 const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -55,7 +62,7 @@ export async function getSourcesPageViewModel(): Promise<SourcesPageViewModel> {
     if (storageUnavailableKind !== null) {
       return {
         isAvailable: false,
-        unavailableReason: getUnavailableReason(storageUnavailableKind, error),
+        unavailableReason: await getUnavailableReason(storageUnavailableKind, error),
         sources: [],
       };
     }
@@ -255,9 +262,9 @@ function getStorageUnavailableKind(error: unknown): StorageUnavailableKind | nul
   return null;
 }
 
-function getUnavailableReason(kind: StorageUnavailableKind, error?: unknown): string {
+async function getUnavailableReason(kind: StorageUnavailableKind, error?: unknown): Promise<string> {
   if (kind === "bootstrap") {
-    const detail = getBootstrapFailureDetail(error);
+    const detail = await getBootstrapFailureDetail(error);
 
     return detail
       ? `Source storage is configured, but automatic preview migration bootstrap failed. ${detail}`
@@ -279,18 +286,21 @@ function getUnavailableReason(kind: StorageUnavailableKind, error?: unknown): st
   return "Source storage is unavailable in this environment. Configure the database to create, list, pause, or reactivate RSS sources.";
 }
 
-function getBootstrapFailureDetail(error: unknown): string | null {
+async function getBootstrapFailureDetail(error: unknown): Promise<string | null> {
   for (const candidate of walkErrorChain(error)) {
     const message = normalizeBootstrapFailureMessage(candidate);
 
     if (message) {
-      return message;
+      return appendPreviewProbeDetail(message, await loadPreviewStorageProbeResult());
     }
 
     if (candidate.code === "42501") {
-      return appendBootstrapHints(
-        "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.",
-        candidate,
+      return appendPreviewProbeDetail(
+        appendBootstrapHints(
+          "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.",
+          candidate,
+        ),
+        await loadPreviewStorageProbeResult(),
       );
     }
   }
@@ -357,6 +367,55 @@ function appendBootstrapHints(
   }
 
   return `${message} ${fragments.join(" ")}`;
+}
+
+function appendPreviewProbeDetail(
+  message: string,
+  probe: PreviewStorageProbeResult | null,
+): string {
+  if (!probe) {
+    return message;
+  }
+
+  return `${message} Preview probe: public CREATE=${formatPrivilege(probe.publicCreate)}, public USAGE=${formatPrivilege(probe.publicUsage)}, sources table=${formatPresence(probe.sourcesExists)}, source_sync_state table=${formatPresence(probe.sourceSyncStateExists)}.`;
+}
+
+function formatPrivilege(value: boolean): string {
+  return value ? "yes" : "no";
+}
+
+function formatPresence(value: boolean): string {
+  return value ? "present" : "missing";
+}
+
+async function loadPreviewStorageProbeResult(): Promise<PreviewStorageProbeResult | null> {
+  if (!shouldAttemptPreviewSchemaBootstrap()) {
+    return null;
+  }
+
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    return null;
+  }
+
+  const client = createSqlClient(databaseUrl);
+
+  try {
+    const [probe] = await client<PreviewStorageProbeResult[]>`
+      select
+        has_schema_privilege('public', 'CREATE') as "publicCreate",
+        has_schema_privilege('public', 'USAGE') as "publicUsage",
+        to_regclass('public.sources') is not null as "sourcesExists",
+        to_regclass('public.source_sync_state') is not null as "sourceSyncStateExists"
+    `;
+
+    return probe ?? null;
+  } catch {
+    return null;
+  } finally {
+    await client.end();
+  }
 }
 
 function normalizeSupplementalErrorText(value: string | undefined): string | null {
