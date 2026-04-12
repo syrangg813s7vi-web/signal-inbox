@@ -281,26 +281,34 @@ function getUnavailableReason(kind: StorageUnavailableKind, error?: unknown): st
 
 function getBootstrapFailureDetail(error: unknown): string | null {
   for (const candidate of walkErrorChain(error)) {
-    const message = normalizeBootstrapFailureMessage(candidate.message);
+    const message = normalizeBootstrapFailureMessage(candidate);
 
     if (message) {
       return message;
     }
 
     if (candidate.code === "42501") {
-      return "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.";
+      return appendBootstrapHints(
+        "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.",
+        candidate,
+      );
     }
   }
 
   return null;
 }
 
-function normalizeBootstrapFailureMessage(message: string | undefined): string | null {
-  if (!message) {
+function normalizeBootstrapFailureMessage(candidate: {
+  code?: string;
+  detail?: string;
+  hint?: string;
+  message?: string;
+}): string | null {
+  if (!candidate.message) {
     return null;
   }
 
-  const normalizedMessage = message.replace(/\s+/g, " ").trim();
+  const normalizedMessage = candidate.message.replace(/\s+/g, " ").trim();
   const lowercasedMessage = normalizedMessage.toLowerCase();
 
   if (
@@ -319,44 +327,110 @@ function normalizeBootstrapFailureMessage(message: string | undefined): string |
     lowercasedMessage.includes("permission denied for schema") ||
     lowercasedMessage.includes("must be owner of")
   ) {
-    return "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.";
+    return appendBootstrapHints(
+      "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.",
+      candidate,
+    );
   }
 
   if (lowercasedMessage.includes('type "source_type" does not exist')) {
-    return "The preview database is reachable, but the source enums are still missing. Run the migrations for this environment before rechecking the route.";
+    return appendBootstrapHints(
+      "The preview database is reachable, but the source enums are still missing. Run the migrations for this environment before rechecking the route.",
+      candidate,
+    );
   }
 
-  return `${normalizedMessage}.`;
+  return appendBootstrapHints(`${normalizedMessage}.`, candidate);
 }
 
-function* walkErrorChain(error: unknown): Generator<{ code?: string; message?: string }> {
-  let current = error;
+function appendBootstrapHints(
+  message: string,
+  candidate: { detail?: string; hint?: string },
+): string {
+  const fragments = [
+    normalizeSupplementalErrorText(candidate.detail),
+    normalizeSupplementalErrorText(candidate.hint),
+  ].filter((fragment): fragment is string => fragment !== null);
+
+  if (fragments.length === 0) {
+    return message;
+  }
+
+  return `${message} ${fragments.join(" ")}`;
+}
+
+function normalizeSupplementalErrorText(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value.replace(/\s+/g, " ").trim();
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return normalizedValue.endsWith(".") ? normalizedValue : `${normalizedValue}.`;
+}
+
+function* walkErrorChain(error: unknown): Generator<{
+  code?: string;
+  detail?: string;
+  hint?: string;
+  message?: string;
+}> {
+  const queue: unknown[] = [error];
   const seen = new Set<unknown>();
 
-  while (current && !seen.has(current)) {
+  while (queue.length > 0) {
+    const current = queue.shift();
+
+    if (!current || seen.has(current)) {
+      continue;
+    }
+
     seen.add(current);
 
-    if (typeof current === "object" && current !== null) {
+    if (typeof current === "object") {
       const candidate = current as {
         cause?: unknown;
         code?: string;
+        detail?: string;
+        error?: unknown;
+        errors?: unknown[];
+        hint?: string;
         message?: string;
+        originalError?: unknown;
       };
 
       yield {
         code: candidate.code,
+        detail: candidate.detail,
+        hint: candidate.hint,
         message: candidate.message,
       };
 
-      current = candidate.cause;
+      if (candidate.cause) {
+        queue.push(candidate.cause);
+      }
+
+      if (candidate.originalError) {
+        queue.push(candidate.originalError);
+      }
+
+      if (candidate.error) {
+        queue.push(candidate.error);
+      }
+
+      if (Array.isArray(candidate.errors)) {
+        queue.push(...candidate.errors);
+      }
+
       continue;
     }
 
     if (typeof current === "string") {
       yield { message: current };
-      return;
     }
-
-    return;
   }
 }
