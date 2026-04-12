@@ -165,6 +165,17 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                           </button>
                         </form>
                       )}
+
+                      <form action={`/sources/${source.id}/delete`} method="post">
+                        <input type="hidden" name="sourceId" value={source.id} />
+                        <button
+                          disabled={!viewModel.isAvailable}
+                          type="submit"
+                          className="rounded-full border border-[rgba(181,71,33,0.28)] px-4 py-2 text-sm font-medium text-[var(--warm)] transition enabled:hover:bg-[rgba(181,71,33,0.08)] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      </form>
                     </div>
                   </div>
                 </article>

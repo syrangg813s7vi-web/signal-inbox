@@ -1,5 +1,6 @@
 import {
   createRssSource,
+  deleteSource,
   pauseSource,
   reactivateSource,
   SourceConflictError,
@@ -26,6 +27,11 @@ export async function pauseSourceFromFormData(formData: FormData) {
 export async function reactivateSourceFromFormData(formData: FormData) {
   const sourceId = String(formData.get("sourceId") ?? "");
   return withSourceStorageReady(() => reactivateSource(sourceId));
+}
+
+export async function deleteSourceFromFormData(formData: FormData) {
+  const sourceId = String(formData.get("sourceId") ?? "");
+  return withSourceStorageReady(() => deleteSource(sourceId));
 }
 
 export function getMutationErrorMessage(error: unknown): string {

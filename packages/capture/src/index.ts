@@ -1,5 +1,6 @@
 export {
   createRssSource,
+  deleteSource,
   listRssSources,
   pauseSource,
   reactivateSource,

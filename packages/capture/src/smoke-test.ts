@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   createRssSource,
+  deleteSource,
   listRssSources,
   pauseSource,
   reactivateSource,
@@ -76,6 +77,11 @@ async function runCaptureSmokeTest(databaseUrl: string) {
     "Source not found.",
   );
 
+  await expectSourceNotFoundError(
+    () => deleteSource(randomUUID(), databaseUrl),
+    "Source not found.",
+  );
+
   await expectSourceValidationError(
     () =>
       createRssSource(
@@ -99,6 +105,11 @@ async function runCaptureSmokeTest(databaseUrl: string) {
       ),
     "That RSS source is already registered.",
   );
+
+  await deleteSource(createdSource.id, databaseUrl);
+
+  const sourcesAfterDelete = await listRssSources(databaseUrl);
+  assert.equal(sourcesAfterDelete.length, 0);
 }
 
 async function expectSourceValidationError(

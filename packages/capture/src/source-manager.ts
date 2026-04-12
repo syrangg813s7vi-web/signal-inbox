@@ -130,6 +130,28 @@ export async function reactivateSource(
   return updateSourceStatus(sourceId, "active", databaseUrl);
 }
 
+export async function deleteSource(sourceId: string, databaseUrl?: string): Promise<void> {
+  if (!sourceId.trim()) {
+    throw new SourceValidationError("Source id is required.");
+  }
+
+  const client = createSqlClient(databaseUrl);
+  const db = createDbFromClient(client);
+
+  try {
+    const [deletedSource] = await db
+      .delete(sources)
+      .where(and(eq(sources.id, sourceId), eq(sources.sourceType, "rss")))
+      .returning({ id: sources.id });
+
+    if (!deletedSource) {
+      throw new SourceNotFoundError("Source not found.");
+    }
+  } finally {
+    await client.end();
+  }
+}
+
 async function updateSourceStatus(
   sourceId: string,
   status: SourceStatus,
