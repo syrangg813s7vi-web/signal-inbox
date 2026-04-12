@@ -19,18 +19,15 @@ export async function createRssSourceFromFormData(formData: FormData) {
   );
 }
 
-export async function pauseSourceFromFormData(formData: FormData) {
-  const sourceId = String(formData.get("sourceId") ?? "");
+export async function pauseSourceById(sourceId: string) {
   return withSourceStorageReady(() => pauseSource(sourceId));
 }
 
-export async function reactivateSourceFromFormData(formData: FormData) {
-  const sourceId = String(formData.get("sourceId") ?? "");
+export async function reactivateSourceById(sourceId: string) {
   return withSourceStorageReady(() => reactivateSource(sourceId));
 }
 
-export async function deleteSourceFromFormData(formData: FormData) {
-  const sourceId = String(formData.get("sourceId") ?? "");
+export async function deleteSourceById(sourceId: string) {
   return withSourceStorageReady(() => deleteSource(sourceId));
 }
 

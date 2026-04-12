@@ -144,7 +144,6 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                     <div className="flex items-center gap-3">
                       {source.status === "paused" ? (
                         <form action={`/sources/${source.id}/reactivate`} method="post">
-                          <input type="hidden" name="sourceId" value={source.id} />
                           <button
                             disabled={!viewModel.isAvailable}
                             type="submit"
@@ -155,7 +154,6 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                         </form>
                       ) : (
                         <form action={`/sources/${source.id}/pause`} method="post">
-                          <input type="hidden" name="sourceId" value={source.id} />
                           <button
                             disabled={!viewModel.isAvailable}
                             type="submit"
@@ -167,7 +165,6 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                       )}
 
                       <form action={`/sources/${source.id}/delete`} method="post">
-                        <input type="hidden" name="sourceId" value={source.id} />
                         <button
                           disabled={!viewModel.isAvailable}
                           type="submit"

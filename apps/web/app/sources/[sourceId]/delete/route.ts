@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { deleteSourceFromFormData, getMutationErrorMessage } from "@/server/source-mutations";
+import { deleteSourceById, getMutationErrorMessage } from "@/server/source-mutations";
 
-export async function POST(request: Request) {
-  const formData = await request.formData();
-
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ sourceId: string }> },
+) {
   try {
-    await deleteSourceFromFormData(formData);
+    const { sourceId } = await context.params;
+    await deleteSourceById(sourceId);
     return redirectToSources(request, { message: "Source deleted." });
   } catch (error) {
     return redirectToSources(request, { error: getMutationErrorMessage(error) });

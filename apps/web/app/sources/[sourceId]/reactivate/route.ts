@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 
 import {
   getMutationErrorMessage,
-  reactivateSourceFromFormData,
+  reactivateSourceById,
 } from "@/server/source-mutations";
 
-export async function POST(request: Request) {
-  const formData = await request.formData();
-
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ sourceId: string }> },
+) {
   try {
-    await reactivateSourceFromFormData(formData);
+    const { sourceId } = await context.params;
+    await reactivateSourceById(sourceId);
     return redirectToSources(request, { message: "Source reactivated." });
   } catch (error) {
     return redirectToSources(request, { error: getMutationErrorMessage(error) });

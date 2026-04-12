@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { getMutationErrorMessage, pauseSourceFromFormData } from "@/server/source-mutations";
+import { getMutationErrorMessage, pauseSourceById } from "@/server/source-mutations";
 
-export async function POST(request: Request) {
-  const formData = await request.formData();
-
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ sourceId: string }> },
+) {
   try {
-    await pauseSourceFromFormData(formData);
+    const { sourceId } = await context.params;
+    await pauseSourceById(sourceId);
     return redirectToSources(request, { message: "Source paused." });
   } catch (error) {
     return redirectToSources(request, { error: getMutationErrorMessage(error) });
