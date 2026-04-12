@@ -1,23 +1,27 @@
-import type { ItemType, Source, SourceSyncState } from "@signal-inbox/core";
+import type {
+  RawAssetType,
+  Source,
+  SourceSyncState,
+} from "@signal-inbox/core";
 
 export interface ConnectorRunInput {
   source: Source;
   syncState?: SourceSyncState;
 }
 
-export interface NormalizedConnectorRecord {
+export interface CapturedRecord {
   externalId: string;
-  itemType: ItemType;
+  assetType: RawAssetType;
   title?: string;
   author?: string;
   url?: string;
   publishedAt?: Date;
   rawContent: string;
-  metadata?: Record<string, unknown>;
+  rawMetadata?: Record<string, unknown>;
 }
 
 export interface ConnectorResult {
-  records: NormalizedConnectorRecord[];
+  records: CapturedRecord[];
   nextCursor?: string;
 }
 

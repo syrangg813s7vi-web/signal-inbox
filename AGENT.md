@@ -2,21 +2,28 @@
 
 ## Project Summary
 
-Signal Inbox is an active personal information operating system that turns noisy, multi-source inputs into low-friction, actionable, and reusable results.
+Signal Inbox is a personal AI system built around the full information lifecycle.
 
-The product is not a generic workflow builder or a raw feed reader. It is a result-first system centered on:
+The product is organized around three value domains:
 
-- unified input
-- automatic cleanup and summarization
-- Inbox-first consumption
-- digest generation
-- delivery into external tools
+- `Capture`
+- `Knowledge`
+- `Review`
+
+The implementation is organized around four stable layers:
+
+- `Capture Layer`
+- `Normalization Layer`
+- `Knowledge Layer`
+- `Review Layer`
+
+Supporting capabilities such as `Delivery` and `Web` exist to serve those domains and layers.
 
 ## Current Phase
 
 The repository is currently in Phase 1:
 
-`RSS -> Item ingest -> basic processing -> Inbox`
+`RSS source -> CaptureEntry -> RawAsset -> Item -> basic knowledge processing -> Inbox`
 
 This is the first implementation target and should be prioritized over adding more sources or advanced features.
 
@@ -40,10 +47,16 @@ Use these names consistently:
 
 - `Source`
 - `SourceSyncState`
+- `CaptureEntry`
+- `RawAsset`
 - `Item`
+- `Enrichment`
 - `ItemGroup`
+- `Note`
 - `Digest`
-- `Destination`
+- `ReviewObject`
+- `KnowledgeDestination`
+- `DeliveryDestination`
 - `DeliveryLog`
 
 Do not replace them with synonyms like:
@@ -51,15 +64,19 @@ Do not replace them with synonyms like:
 - `Feed`
 - `Document`
 - `Artifact`
-- `Sink`
+- `Sink` for shared domain objects
 
 ## Core Implementation Constraints
 
 - keep Home minimal and result-first
 - keep Inbox as the primary work surface
+- keep Knowledge as the preservation surface
+- keep Review for digest, reminder, and re-surfacing behavior
+- do not bypass shared capture and normalization paths
 - do not bypass the shared `Item` model
-- do not mix connector logic, processor logic, delivery logic, and UI logic
+- do not mix capture logic, normalization logic, knowledge logic, delivery logic, and UI logic
 - preserve the V1 fixed processing order:
+  - `score`
   - `dedupe`
   - `summarize`
   - `classify`
@@ -79,8 +96,8 @@ Do not replace them with synonyms like:
 1. scaffold repository structure
 2. add database schema and migrations
 3. implement RSS source CRUD and sync
-4. implement unified Item ingest
-5. implement minimal processing pipeline
+4. implement CaptureEntry and RawAsset creation
+5. implement normalization into Item
 6. render the first usable Inbox view
 
 ## What Good Work Looks Like

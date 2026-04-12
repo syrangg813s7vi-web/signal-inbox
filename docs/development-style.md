@@ -20,17 +20,23 @@ Use the domain terms already defined in the project docs:
 
 - `Source`
 - `SourceSyncState`
+- `CaptureEntry`
+- `RawAsset`
 - `Item`
+- `Enrichment`
 - `ItemGroup`
+- `Note`
 - `Digest`
-- `Destination`
+- `ReviewObject`
+- `KnowledgeDestination`
+- `DeliveryDestination`
 - `DeliveryLog`
 
 Do not introduce alternative names such as:
 
 - `Document` for `Item`
 - `Feed` for `Source`
-- `Sink` for `Destination`
+- `Destination` as a catch-all name for both knowledge preservation and lightweight delivery
 - `Artifact` for a core content object
 
 ## TypeScript Style
@@ -49,9 +55,9 @@ Do not introduce alternative names such as:
 
 - one module should have one clear responsibility
 - avoid mixing UI, data access, and business logic in the same file
-- keep source-specific logic inside `connectors`
-- keep processing logic inside `processors`
-- keep delivery logic inside `delivery`
+- keep source-specific capture logic inside `capture` or `connectors`
+- keep normalization logic separate from knowledge processing logic
+- keep knowledge sink logic separate from delivery sink logic
 - keep view shaping in web query or view-model layers
 
 Recommended file naming:
@@ -82,24 +88,37 @@ Recommended structure:
   - schema
   - migrations
   - db client
+- `packages/capture`
+  - source management
+  - capture entry creation
 - `packages/connectors`
-  - source-specific fetch and normalization logic
-- `packages/processors`
-  - item enrichment logic
+  - source-specific fetch logic
+- `packages/normalization`
+  - extraction
+  - transcription
+  - OCR
+  - raw asset to item transformation
+- `packages/knowledge`
+  - item enrichment
+  - note creation
+  - knowledge sink sync
+- `packages/review`
+  - digest generation
+  - reminder and review generation
 - `packages/ai`
   - provider abstraction
   - prompts
   - task routing
 - `packages/delivery`
-  - destination adapters
+  - lightweight delivery adapters
 - `packages/core`
   - shared orchestration and job coordination
 
 Placement rules:
 
 - do not place connector logic in web routes
-- do not place processor logic in UI components
-- do not place delivery formatting in processors
+- do not place normalization or knowledge-processing logic in UI components
+- do not place knowledge sink formatting in delivery adapters
 - do not place raw SQL or schema definitions inside page files
 - do not place page-specific view shaping inside domain packages unless it is broadly reusable
 
@@ -116,7 +135,7 @@ Placement rules:
 
 - keep schema definitions in the db package
 - prefer typed query helpers over repeated inline query logic
-- keep persistence concerns separate from processor logic
+- keep persistence concerns separate from normalization and knowledge-processing logic
 - do not bypass the shared Item model
 - schema changes must be reflected in `docs/data-model.md`
 
@@ -146,11 +165,13 @@ Configuration placement rules:
 
 ## Processor Style
 
-- processors should be single-purpose
-- each processor should have explicit input and output behavior
-- processors must not deliver content externally
-- processors must not embed source-specific fetching logic
+Knowledge processing should be single-purpose and layered.
+
+- each processing step should have explicit input and output behavior
+- knowledge processing must not deliver content externally
+- knowledge processing must not embed source-specific fetching logic
 - preserve the V1 fixed order:
+  - `score`
   - `dedupe`
   - `summarize`
   - `classify`
@@ -158,17 +179,31 @@ Configuration placement rules:
 
 ## Connector Style
 
-- each connector is responsible only for fetch plus normalization
+- each connector is responsible only for fetch and source-specific adaptation into capture records
 - connectors should not summarize or classify
-- connectors should return ingest-ready normalized records
+- connectors should not perform generic RawAsset to Item normalization
 - connector-specific quirks should stay local to the connector
+
+## Normalization Style
+
+- normalization turns `RawAsset` into `Item`
+- normalization owns extraction, metadata cleanup, OCR, and transcription hooks
+- normalization must not score, summarize, or create Notes
+- normalization should produce a shared Item shape for downstream knowledge processing
+
+## Knowledge Style
+
+- knowledge logic owns scoring, dedupe, summarization, grouping, enrichment, and note creation
+- knowledge sink sync belongs with knowledge logic, not lightweight delivery
+- Notes should only be built from processed Items or explicit preservation actions
 
 ## Delivery Style
 
-- destination adapters should accept an `Item` or `Digest`
+- delivery adapters should handle lightweight outbound delivery only
+- delivery adapters should accept a review-ready payload such as a `Digest` or delivery-oriented projection
 - adapters should format only for their own destination
 - adapters must record success or failure through delivery logging
-- delivery logic should not contain processing logic
+- delivery logic should not contain knowledge-processing logic or note-building logic
 
 ## Comments
 
@@ -186,7 +221,7 @@ Configuration placement rules:
 Recommended patterns:
 
 - connectors may throw structured errors upward to the job or service boundary
-- processors should fail clearly and preserve the Item context where possible
+- normalization and knowledge processing should fail clearly and preserve the Item context where possible
 - delivery adapters should return a clear success or failure result and enough detail for logging
 - UI should present user-friendly messages without exposing noisy internal detail
 
@@ -216,9 +251,15 @@ Minimum important log points:
 - source sync started
 - source sync succeeded
 - source sync failed
+- normalization started
+- normalization succeeded
+- normalization failed
 - item processing started
 - item processing succeeded
 - item processing failed
+- knowledge sync started
+- knowledge sync succeeded
+- knowledge sync failed
 - digest generation started
 - digest generation succeeded
 - digest generation failed
@@ -230,7 +271,10 @@ Recommended log context fields:
 
 - `job_type`
 - `source_id`
+- `capture_entry_id`
+- `raw_asset_id`
 - `item_id`
+- `note_id`
 - `digest_id`
 - `destination_id`
 - `status`
@@ -292,6 +336,22 @@ Validate:
 - the changed processor works on at least one realistic Item
 - the Item state after processing is correct
 - downstream paths still work if affected
+
+### Normalization Changes
+
+Validate:
+
+- the changed normalization step works on at least one realistic RawAsset
+- RawAsset metadata and text are transformed into the expected Item shape
+- downstream knowledge processing still works if affected
+
+### Knowledge Changes
+
+Validate:
+
+- the changed knowledge step works on at least one realistic Item
+- Note creation or enrichment output is correct if affected
+- downstream review or sink sync paths still work if affected
 
 ### Delivery Changes
 

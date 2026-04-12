@@ -1,47 +1,115 @@
 # Project
 
+## Architecture Declaration
+
+Signal Inbox is a personal AI system built around the full information lifecycle.
+
+Its job is to support this lifecycle:
+
+`capture -> understand -> preserve -> revisit`
+
+The product is organized around three long-term value domains:
+
+- `Capture`
+- `Knowledge`
+- `Review`
+
+The implementation is organized around four stable layers:
+
+- `Capture Layer`
+- `Normalization Layer`
+- `Knowledge Layer`
+- `Review Layer`
+
+Supporting capabilities such as `Delivery` and `Web` exist to serve those domains and layers, not to replace them.
+
+Long-term architecture rules:
+
+1. all inputs must enter the system through shared capture and normalization paths
+2. knowledge preservation and lightweight delivery must remain separate concepts
+3. review must depend on processed or preserved objects, not on raw input directly
+4. web surfaces display results and actions, but do not own the core processing logic
+5. future capabilities should extend the existing domains and layers rather than creating disconnected special cases
+
 ## One-line Positioning
 
-An active personal information operating system that turns noisy, multi-source inputs into low-friction, actionable, and reusable results.
+Signal Inbox is a personal AI system for capture, knowledge building, and review.
+
+It turns noisy inputs into structured, reusable knowledge and then helps the user revisit what matters.
+
+## Product Domains
+
+The product is organized around three value domains:
+
+- `Capture`
+  - get information into the system with low friction
+- `Knowledge`
+  - transform inputs into structured, reusable knowledge
+- `Review`
+  - re-surface the right information at the right time
 
 ## Primary User
 
-The first user is a high-input individual user who follows AI, news, and video content across multiple channels, values systems and long-term knowledge capture, and prefers low-maintenance tools over highly configurable systems.
+The first user is a high-input individual user who follows AI, news, and long-form content across multiple channels, wants AI help with filtering and summarization, and values long-term knowledge capture more than raw feed reading.
 
 ## Core Problem
 
-Current information intake is fragmented, noisy, repetitive, and difficult to turn into something reusable. The user does not need more inputs. The user needs a system that:
+Current information intake is fragmented, repetitive, and difficult to turn into durable knowledge.
 
-- ingests multiple sources into one place
+The user does not need more feeds. The user needs a system that:
+
+- captures information from multiple channels
+- normalizes different input formats into one shared structure
 - reduces noise and duplication
-- generates readable summaries
-- supports later action and knowledge capture
-- sends useful outputs into existing tools
+- scores and summarizes what matters
+- turns high-value information into reusable notes
+- re-surfaces the right content later through digest and review flows
+
+## Product Goal
+
+The goal is not to build a better RSS reader.
+
+The goal is to build a personal AI operating layer that supports this lifecycle:
+
+`capture -> understand -> preserve -> revisit`
 
 ## MVP Scope
 
-The first version supports this end-to-end flow:
+The first version should prove the full lifecycle with a narrow source set and a narrow review surface.
 
-- input sources:
-  - Twitter/X lists
-  - WeChat public accounts
-  - RSS feeds
-- processing:
-  - deduplication
-  - short AI summarization
-  - basic tagging
-  - simple topic grouping
-- product surfaces:
-  - Home
-  - Inbox
-  - Digest
-  - Sources
-  - Destinations
-  - Settings
-- outputs:
-  - Notion
-  - Obsidian
-  - Feishu
+### Capture
+
+- RSS feeds
+- manual saved links
+
+### Knowledge Processing
+
+- content extraction
+- normalization into shared Items
+- scoring
+- deduplication
+- short AI summarization
+- basic tagging
+- simple topic grouping
+- note creation
+
+### Product Surfaces
+
+- Home
+- Inbox
+- Knowledge
+- Digest
+- Sources
+- Settings
+
+### Knowledge Sinks
+
+- Notion
+- Obsidian
+
+### Delivery Sinks
+
+- Feishu
 
 ## Explicit Non-Goals For V1
 
@@ -51,28 +119,29 @@ The first version supports this end-to-end flow:
 - no broad source coverage beyond the first source set
 - no complex knowledge graph
 - no chat-first AI UX
+- no fully automated reminder engine beyond a minimal digest/review path
 
 ## Product Surfaces
 
 ### Home
 
-Minimal landing page. Shows only the most important results for today and provides entry into Inbox and Digest.
+Minimal landing page. Shows the most important things to review now.
 
 ### Inbox
 
-Primary work surface. Shows processed content, not raw feeds.
+Primary input-processing surface. Shows processed Items, not raw feeds.
+
+### Knowledge
+
+Shows Notes created from high-value Items and makes the knowledge layer visible.
 
 ### Digest
 
-Compressed daily or weekly summary view.
+Compressed review surface for daily and later weekly review output.
 
 ### Sources
 
-Manage source connections and source status.
-
-### Destinations
-
-Manage output targets such as Notion, Obsidian, and Feishu.
+Manages capture sources and source status.
 
 ### Settings
 
@@ -80,21 +149,25 @@ Only global settings. No advanced workflow editing in V1.
 
 ## Product Principles
 
-### Inbox First
+### Capture Without Friction
 
-The primary user value comes from opening the product and immediately seeing processed results.
+The system should make it easy to get information in before asking the user to classify it.
 
 ### Result Over Raw
 
-The product should prioritize cleaned and summarized output over raw streams.
+The product should prioritize processed information over raw streams.
+
+### Knowledge Over Collection
+
+The system should help the user preserve what matters, not merely save everything.
+
+### Review Creates Value
+
+Long-term value comes from re-surfacing and revisiting information, not only from first-pass reading.
 
 ### Strong Defaults
 
 The first version should work well with very little setup.
-
-### Low Friction
-
-The product should minimize navigation, configuration, and maintenance.
 
 ### Progressive Disclosure
 
@@ -106,9 +179,9 @@ The interface should feel calm, focused, and low-noise. Home should not behave l
 
 ## Core User Flow
 
-1. Add a source.
-2. The system syncs source content automatically.
-3. The system converts content into processed items.
-4. The user opens Home or Inbox to review important results.
-5. Important items can be sent to Notion, Obsidian, or Feishu.
-6. The user reads a daily Digest for compressed review.
+1. A source is added or a link is manually captured.
+2. The system stores the raw input and normalizes it into an Item.
+3. The system scores, deduplicates, summarizes, and groups the Item.
+4. The user opens Home or Inbox to review important processed results.
+5. High-value Items can be turned into Notes and synced to knowledge sinks.
+6. The user reads a Digest and later review surfaces to revisit important content.

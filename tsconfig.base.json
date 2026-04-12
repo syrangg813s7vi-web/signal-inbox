@@ -16,11 +16,14 @@
     "baseUrl": ".",
     "paths": {
       "@signal-inbox/ai": ["packages/ai/src"],
+      "@signal-inbox/capture": ["packages/capture/src"],
       "@signal-inbox/connectors": ["packages/connectors/src"],
       "@signal-inbox/core": ["packages/core/src"],
       "@signal-inbox/db": ["packages/db/src"],
       "@signal-inbox/delivery": ["packages/delivery/src"],
-      "@signal-inbox/processors": ["packages/processors/src"]
+      "@signal-inbox/knowledge": ["packages/knowledge/src"],
+      "@signal-inbox/normalization": ["packages/normalization/src"],
+      "@signal-inbox/review": ["packages/review/src"]
     }
   }
 }

@@ -27,7 +27,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
                 {appConfig.name}
               </Link>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                Minimal app shell for the first vertical slice.
+                Minimal app shell for the first capture-to-inbox slice.
               </p>
             </div>
 

@@ -11,544 +11,394 @@
 - queue: Redis + BullMQ
 - AI provider: OpenAI API via provider abstraction
 - package manager: pnpm
-- local development and deployment: Docker Compose
+- local development: local shell and Vercel preview for early review
+- backend deployment target: self-hosted jobs and data services
 
 ## System Shape
 
-The system is a modular monolith with clear internal boundaries:
+The system is a modular monolith with three product domains and four implementation layers.
 
-- web
-- source manager
-- connectors
-- unified ingest
-- processors
-- digest generator
-- delivery
-- database
-- jobs
+### Product Domains
 
-Implementation should preserve those boundaries in both directory structure and runtime behavior.
+- `Capture`
+- `Knowledge`
+- `Review`
 
-## Main Modules
+### Implementation Layers
+
+- `Capture Layer`
+- `Normalization Layer`
+- `Knowledge Layer`
+- `Review Layer`
+
+This shape keeps the system aligned with the information lifecycle instead of centering the design only around source ingestion.
+This shape keeps the system aligned with the information lifecycle.
+
+## Layer Model
+
+### 1. Capture Layer
+
+Responsible for getting information into the system.
+
+Main responsibilities:
+
+- source management
+- manual capture entry
+- connector execution
+- raw asset persistence
+
+Primary concepts:
+
+- `Source`
+- `CaptureEntry`
+- `RawAsset`
+
+Not responsible for:
+
+- AI summarization
+- knowledge sink sync
+- digest generation
+
+Main modules:
+
+- `capture-manager`
+- `connectors`
+- `manual-capture`
+- `raw-storage`
+
+### 2. Normalization Layer
+
+Responsible for converting different raw inputs into one shared information object.
+
+Main responsibilities:
+
+- content extraction
+- metadata normalization
+- OCR when needed later
+- transcription when needed later
+- Item creation
+
+Primary concept:
+
+- `Item`
+
+Not responsible for:
+
+- importance scoring
+- note creation
+- digest generation
+
+Main modules:
+
+- `extractor`
+- `transcription`
+- `ocr`
+- `normalizer`
+
+### 3. Knowledge Layer
+
+This is the main AI processing and preservation layer.
+
+Main responsibilities:
+
+- scoring
+- deduplication
+- summarization
+- tagging and classification
+- topic grouping
+- AI enrichment
+- note creation
+- knowledge sink sync
+
+Primary concepts:
+
+- `Item`
+- `Enrichment`
+- `ItemGroup`
+- `Note`
+
+Not responsible for:
+
+- raw source fetching
+- review scheduling
+- generic outbound notification logic
+
+Main modules:
+
+- `scorer`
+- `deduper`
+- `summarizer`
+- `classifier`
+- `grouper`
+- `enricher`
+- `note-builder`
+- `knowledge-sync`
+
+### 4. Review Layer
+
+Responsible for re-surfacing information and knowledge later.
+
+Main responsibilities:
+
+- digest generation
+- review generation
+- reminder selection
+- topic review selection
+
+Primary concepts:
+
+- `Digest`
+- `ReviewObject`
+
+Not responsible for:
+
+- source ingestion
+- raw content normalization
+- note persistence
+
+Main modules:
+
+- `digest-generator`
+- `review-generator`
+- `reminder-engine`
+
+## Supporting Runtime Areas
 
 ### Web
 
-Responsible for rendering the product UI:
+Responsible for the user-facing product UI:
 
 - Home
 - Inbox
+- Knowledge
 - Digest
 - Sources
-- Destinations
 - Settings
 
 Not responsible for:
 
 - source fetching
-- content processing
-- delivery to external systems
+- Item processing
+- note sync execution
+- review scheduling
 
-Internal subareas:
+### Jobs
 
-- page routes
-- presentational components
-- server queries
-- server actions
-- view-model shaping
+Responsible for orchestrating async work across the four implementation layers.
 
-### Source Manager
+V1 job families:
+
+- `capture-sync`
+- `normalize-item`
+- `process-item`
+- `knowledge-sync`
+- `digest-generate`
+- `review-generate`
+- `delivery`
+
+### Delivery
+
+Delivery is a supporting capability, not a primary domain.
+
+It should be split conceptually into:
+
+- `knowledge sinks`
+  - Notion
+  - Obsidian
+  - Memos later
+- `delivery sinks`
+  - Feishu
+  - Email later
+  - Telegram later
+
+Knowledge sinks are part of knowledge preservation.
+Delivery sinks are lightweight distribution channels.
+
+## Main Modules
+
+### Capture Manager
 
 Responsible for:
 
-- creating and updating sources
-- enabling and disabling sources
-- exposing source state to the UI
+- creating and updating Sources
+- enabling and disabling Sources
+- creating manual capture entries
+- exposing capture state to the UI
 
 Not responsible for:
 
-- fetching content
-- summarization
-- delivery
-
-Internal subareas:
-
-- source CRUD
-- source validation
-- source status updates
-- source listing for UI
+- content processing
+- note sync
+- review generation
 
 ### Connectors
 
 Responsible for:
 
-- fetching raw content from specific source types
-- translating source-specific payloads into normalized ingest input
-- updating sync cursor state
+- fetching raw content from source types
+- converting source payloads into raw assets or ingest-ready records
+- updating source sync state
 
-Supported source types in V1:
+V1 source types:
 
 - rss
+- manual_link
+
+Future source types:
+
 - twitter_list
 - wechat
+- youtube
+- podcast
+- bot_forward
 
-Not responsible for:
-
-- summarization
-- topic grouping
-- UI rendering
-- external delivery
-
-Internal subareas:
-
-- source-specific fetch logic
-- source-specific auth or access logic if needed later
-- source payload normalization into ingest-ready records
-- source cursor update support
-
-### Unified Ingest
+### Normalizer
 
 Responsible for:
 
-- converting normalized connector output into the shared Item model
-- storing raw and cleanable content fields
-- creating new processing jobs
+- turning raw assets into Items
+- extracting content text
+- standardizing metadata
+- producing a consistent representation for later processing
 
-Not responsible for:
+### Knowledge Processing
 
-- AI enrichment
-- page rendering
-- external delivery
+Responsible for running the AI-assisted processing chain.
 
-Internal subareas:
+V1 processing order:
 
-- raw connector output validation
-- shared Item mapping
-- initial Item persistence
-- processing job creation
+1. score
+2. dedupe
+3. summarize
+4. classify
+5. group
+6. note-build
 
-### Processors
+This layer should remain modular, but V1 keeps the pipeline fixed instead of user-configurable.
 
-Responsible for enriching Items after ingest.
+### Knowledge Sync
 
-V1 pipeline order:
+Responsible for persisting Notes to knowledge sinks.
 
-1. dedupe
-2. summarize
-3. classify
-4. group
-
-Not responsible for:
-
-- source fetching
-- direct UI rendering
-- direct writes to external destinations
-
-Internal subareas:
-
-- pipeline runner
-- dedupe processor
-- summarize processor
-- classify processor
-- group processor
-
-### Digest Generator
-
-Responsible for:
-
-- generating daily and later weekly digests
-- summarizing processed items into compressed review output
-- storing digest records
-
-Not responsible for:
-
-- source sync
-- raw item ingestion
-- destination configuration
-
-Internal subareas:
-
-- item selection for digest generation
-- digest prompt building
-- digest generation via AI provider
-- digest persistence
-
-### Delivery
-
-Responsible for:
-
-- sending Items or Digests to external destinations
-- tracking delivery results
-
-Supported destination types in V1:
+V1 knowledge sinks:
 
 - notion
 - obsidian
-- feishu
 
-Not responsible for:
+### Review Generator
 
-- fetching source content
-- processing raw source items
-- generating summaries
+Responsible for generating:
 
-Internal subareas:
-
-- destination CRUD support
-- destination-specific formatting
-- destination-specific delivery adapters
-- delivery result persistence
-
-### Jobs
-
-Responsible for orchestrating async work.
-
-V1 job types:
-
-- source-sync
-- item-process
-- digest-generate
-- delivery
-
-Not responsible for:
-
-- business domain logic that belongs inside connectors, processors, digest generation, or delivery adapters
+- daily digest
+- later weekly review
+- later reminder flows
 
 ## Module Interfaces
 
-The following interfaces should stay explicit in code.
-
 ### Connector Interface
 
-A connector should accept:
+Accepts:
 
-- Source
-- optional cursor or sync state
+- `Source`
+- optional `SourceSyncState`
 
-A connector should return:
+Returns:
 
-- a list of normalized ingest-ready records
+- one or more `RawAsset`-like records
 - optional next cursor
 
-### Ingest Interface
+### Normalization Interface
 
-Ingest should accept:
+Accepts:
 
-- normalized connector output
-- source context
+- `RawAsset`
+- optional source context
 
-Ingest should return:
+Returns:
 
-- persisted Item identifiers
-- initial processing enqueue requests
+- one persisted `Item`
+- optional follow-up jobs
 
-### Processor Interface
+### Knowledge Processor Interface
 
-Each processor should accept:
+Accepts:
 
-- one Item
+- one `Item`
 
-Each processor should return:
+Returns:
 
-- an updated Item or processor result that can be merged into Item state
+- updated Item state
+- one or more enrichment results
+- optional note creation result
 
-### Delivery Interface
+### Knowledge Sink Interface
 
-A delivery adapter should accept:
+Accepts:
 
-- Destination
-- one Item or one Digest
+- `Note`
+- `KnowledgeDestination`
 
-A delivery adapter should return:
+Returns:
 
 - success or failure result
 - optional diagnostic message
 
+### Review Interface
+
+Accepts:
+
+- one or more `Note` or `Item` references
+- time window or review policy
+
+Returns:
+
+- `Digest` or `ReviewObject`
+
 ## Main Data Flow
 
-1. A source is created or enabled.
-2. A source-sync job runs.
-3. A connector fetches source content.
-4. Unified ingest converts connector output into Items.
-5. New Items enter the processing pipeline.
-6. Processed Items become visible in Inbox and eligible for Home highlights.
-7. Digest generation compresses processed Items into a daily summary.
-8. Delivery sends Items or Digests to destinations on demand or via default rules.
+1. A source is added or a manual capture entry is created.
+2. The Capture Layer stores a raw input event as `CaptureEntry` and `RawAsset`.
+3. The Normalization Layer converts the raw asset into a shared `Item`.
+4. The Knowledge Layer scores, deduplicates, summarizes, classifies, groups, and enriches the Item.
+5. High-value Items can be converted into `Note` records.
+6. Notes are synced to knowledge sinks.
+7. The Review Layer selects Items and Notes to generate Digests and future review objects.
+8. Web surfaces render Inbox, Knowledge, Digest, and review entry points.
 
 ## Runtime Flows
 
-### Source Sync Flow
+### Capture Flow
 
-1. Source Manager exposes active Sources.
-2. A `source-sync` job is triggered on schedule or on demand.
-3. The correct connector is selected from `source_type`.
-4. The connector fetches records using the current SourceSyncState.
-5. Connector output is passed to Unified Ingest.
-6. Unified Ingest stores new Items.
-7. Unified Ingest enqueues `item-process` jobs.
-8. SourceSyncState is updated with the next cursor and sync timestamps.
+1. A source sync or manual capture event occurs.
+2. The Capture Layer stores the input as `CaptureEntry`.
+3. One or more `RawAsset` records are created.
+4. A normalization job is enqueued.
 
-### Item Processing Flow
+### Normalization Flow
 
-1. An `item-process` job loads one Item.
-2. The pipeline runner executes processors in order:
-   1. dedupe
-   2. summarize
-   3. classify
-   4. group
-3. The Item is updated to `processed` if processing succeeds.
-4. Processing output becomes available to Inbox, Home highlights, and Digest generation.
+1. A normalization job loads one `RawAsset`.
+2. Extraction and metadata cleanup run.
+3. The result is stored as one `Item`.
+4. A knowledge processing job is enqueued.
 
-### Digest Generation Flow
+### Knowledge Flow
 
-1. A `digest-generate` job selects processed Items from the relevant time window.
-2. The digest generator builds digest input and calls the AI provider.
-3. The resulting Digest is stored.
-4. The Digest becomes available in the Digest page and optional delivery actions.
+1. A processing job loads one `Item`.
+2. The fixed pipeline executes in order.
+3. The Item is updated with scores, summary, tags, topic grouping, and enrichment.
+4. A Note may be created if the item is preservation-worthy.
+5. A knowledge sync job may push the Note to a knowledge sink.
 
-### Delivery Flow
+### Review Flow
 
-1. A delivery request is created from UI action or future automation.
-2. A `delivery` job selects the right adapter from `destination_type`.
-3. The adapter formats the Item or Digest for the destination.
-4. The adapter sends the payload.
-5. DeliveryLog stores the result.
+1. Review generation selects relevant Items or Notes.
+2. A Digest or ReviewObject is generated.
+3. The result becomes visible in Home, Digest, and later Review UI.
 
-## Processing Notes
+## Design Rules
 
-The first version intentionally uses a fixed processing pipeline rather than a user-configurable workflow engine. This keeps V1 simple and aligned with the product goal of low-friction defaults.
-
-The first version also prefers single-responsibility processors and explicit pipeline order over flexible orchestration.
-
-## Job Contracts
-
-### source-sync
-
-Input:
-
-- `source_id`
-
-Reads:
-
-- Source
-- SourceSyncState
-
-Writes:
-
-- Items
-- SourceSyncState
-- item-process jobs
-
-Success condition:
-
-- connector completes
-- any new items are ingested
-- sync state is updated
-
-### item-process
-
-Input:
-
-- `item_id`
-
-Reads:
-
-- Item
-
-Writes:
-
-- Item updates
-- ItemGroup and ItemGroupMember updates where relevant
-
-Success condition:
-
-- Item completes the fixed processing pipeline
-- Item status becomes `processed`
-
-### digest-generate
-
-Input:
-
-- digest type
-- target date or time window
-
-Reads:
-
-- processed Items
-
-Writes:
-
-- Digest
-
-Success condition:
-
-- digest is generated and stored
-
-### delivery
-
-Input:
-
-- destination_id
-- content_type
-- content_id
-
-Reads:
-
-- Destination
-- Item or Digest
-
-Writes:
-
-- DeliveryLog
-
-Success condition:
-
-- delivery attempt result is persisted
-
-## UI Data Dependencies
-
-### Home
-
-Needs:
-
-- today item count
-- today topic or group count
-- top highlights
-- digest existence for the current period
-
-Actions:
-
-- navigate to Inbox
-- navigate to Digest
-
-### Inbox
-
-Needs:
-
-- processed Items
-- grouped Items for grouped view
-- filters by time range, source, topic, query
-
-Actions:
-
-- archive Item
-- open Item detail
-- send Item to Destination
-
-### Digest
-
-Needs:
-
-- digest list
-- one selected Digest
-
-Actions:
-
-- view Digest
-- send Digest to Destination
-
-### Sources
-
-Needs:
-
-- source list
-- source status
-- last sync metadata
-
-Actions:
-
-- create Source
-- update Source
-- enable or disable Source
-- trigger sync
-
-### Destinations
-
-Needs:
-
-- destination list
-- destination status
-
-Actions:
-
-- create Destination
-- update Destination
-- test or trigger delivery
-
-### Settings
-
-Needs:
-
-- global model configuration
-- digest settings
-- summary style settings
-
-Actions:
-
-- update global configuration
-
-## Query and Mutation Boundaries
-
-The web layer should separate read-oriented queries from write-oriented actions.
-
-Queries should:
-
-- shape view data for Home, Inbox, Digest, Sources, and Destinations
-
-Actions should:
-
-- create or update Sources
-- trigger sync
-- archive Items
-- trigger delivery
-- update Settings
-
-Business logic should stay out of presentational components.
-
-## Extension Points
-
-The system is designed to grow in three directions:
-
-### New Sources
-
-Add a connector without changing the rest of the pipeline.
-
-Adding a new source type requires:
-
-- a new `source_type`
-- a connector implementation
-- a cursor or sync strategy
-- a normalization mapping into the shared Item model
-- validation path and acceptance criteria
-
-### New Processors
-
-Add new item enrichment capabilities after the shared Item model.
-
-Adding a new processor requires:
-
-- clear pipeline placement
-- Item input and output definition
-- no direct dependency on destination delivery
-- validation for success and failure cases
-
-### New Destinations
-
-Add destination adapters without changing source ingestion or processing.
-
-Adding a new destination requires:
-
-- a new `destination_type`
-- destination configuration shape
-- adapter implementation
-- success and failure semantics
-- delivery log support
-
-## Architectural Constraints
-
-- all source content must pass through the shared Item model
-- processors must not directly deliver to external systems
-- delivery adapters must not operate on raw source payloads
-- Home must remain a result-first surface, not a dashboard
-- web components must not contain source sync or processing logic
-- processor logic must not bypass the fixed pipeline order in V1
-- new source types must not require a new core content model
+- Do not bypass `RawAsset` and `Item` when adding new input types.
+- Do not treat knowledge sinks and delivery sinks as the same thing.
+- Do not let review logic mutate capture or normalization logic.
+- Keep web UI separate from capture, knowledge, and review execution.
+- Prefer stable shared object boundaries over source-specific special cases.

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { APP_NAME, V1_PROCESSOR_ORDER } from "@signal-inbox/core";
+import { APP_NAME, V1_KNOWLEDGE_PIPELINE } from "@signal-inbox/core";
 
 import { appSurfaces } from "../lib/app-surfaces";
 
@@ -7,11 +7,14 @@ const productSurfaces = appSurfaces.filter((surface) => surface.href !== "/");
 
 const moduleBoundaries = [
   "Web",
-  "Database",
+  "Capture",
+  "Normalization",
+  "Knowledge",
+  "Review",
   "Connectors",
-  "Processors",
   "AI",
   "Delivery",
+  "Database",
   "Core Jobs",
 ] as const;
 
@@ -41,17 +44,17 @@ export function HomeShell() {
             </p>
             <h2 className="mt-3 text-2xl font-semibold">Inbox stays primary.</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">
-              Follow-up issues can wire source sync, Item ingest, processing,
-              and delivery without collapsing module ownership into the web app.
+              Follow-up issues can wire capture, normalization, knowledge, and
+              review behavior without collapsing ownership into the web app.
             </p>
           </div>
 
           <div className="rounded-[1.5rem] bg-[var(--foreground)] p-6 text-[#fdf6ec]">
             <p className="text-sm uppercase tracking-[0.2em] text-[#f4b6a6]">
-              V1 pipeline
+              Knowledge pipeline
             </p>
             <ol className="mt-4 space-y-3 text-lg">
-              {V1_PROCESSOR_ORDER.map((step, index) => (
+              {V1_KNOWLEDGE_PIPELINE.map((step, index) => (
                 <li key={step}>
                   {index + 1}. {step}
                 </li>

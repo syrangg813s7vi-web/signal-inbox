@@ -2,6 +2,19 @@
 
 This repository is the active root for the Signal Inbox pilot project.
 
+Signal Inbox is structured around three product domains:
+
+- `Capture`
+- `Knowledge`
+- `Review`
+
+The implementation follows four stable layers:
+
+- `Capture Layer`
+- `Normalization Layer`
+- `Knowledge Layer`
+- `Review Layer`
+
 Current focus:
 
 - keep the project docs current
@@ -27,17 +40,23 @@ For Symphony orchestration:
 ## Repository Layout
 
 - `apps/web`
-  - Next.js app shell for Home, Inbox, Digest, Sources, Destinations, and Settings
+  - Next.js app shell for Home, Inbox, Knowledge, Digest, Sources, and Settings
 - `packages/db`
   - database schema, migrations, and db client
+- `packages/capture`
+  - source management, capture entries, and raw asset orchestration
 - `packages/connectors`
-  - source-specific fetch and normalization logic
-- `packages/processors`
-  - item enrichment pipeline modules
+  - source-specific fetch logic
+- `packages/normalization`
+  - extraction and RawAsset-to-Item transformation
+- `packages/knowledge`
+  - item enrichment, note creation, and knowledge sink sync
+- `packages/review`
+  - digest generation and review selection
 - `packages/ai`
   - AI provider abstraction and prompt orchestration
 - `packages/delivery`
-  - destination adapters
+  - lightweight delivery adapters
 - `packages/core`
   - shared orchestration and job coordination
 

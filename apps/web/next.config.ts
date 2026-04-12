@@ -7,11 +7,14 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: [
     "@signal-inbox/ai",
+    "@signal-inbox/capture",
     "@signal-inbox/connectors",
     "@signal-inbox/core",
     "@signal-inbox/db",
     "@signal-inbox/delivery",
-    "@signal-inbox/processors",
+    "@signal-inbox/knowledge",
+    "@signal-inbox/normalization",
+    "@signal-inbox/review",
   ],
 };
 

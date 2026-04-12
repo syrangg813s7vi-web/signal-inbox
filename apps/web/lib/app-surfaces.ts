@@ -21,31 +21,31 @@ export const appSurfaces: AppSurface[] = [
     eyebrow: "Primary work surface",
     title: "Processed Items land here first.",
     description:
-      "The first vertical slice ends when RSS items can move through ingest and processing into a useful Inbox view.",
+      "The first vertical slice ends when RSS items can move through capture, normalization, and knowledge processing into a useful Inbox view.",
+  },
+  {
+    href: "/knowledge",
+    label: "Knowledge",
+    eyebrow: "Preserved notes",
+    title: "Knowledge stays distinct from the inbox.",
+    description:
+      "Preservation-worthy notes and knowledge sync belong here after processed Items can be promoted beyond the review flow.",
   },
   {
     href: "/digest",
     label: "Digest",
     eyebrow: "Compressed review",
-    title: "Digest builds on processed Items.",
+    title: "Digest builds on processed Items and Notes.",
     description:
-      "Daily and weekly summaries belong here after the shared Item pipeline is in place.",
+      "Daily and weekly summaries belong here after the shared capture and knowledge layers are in place.",
   },
   {
     href: "/sources",
     label: "Sources",
-    eyebrow: "Source manager",
-    title: "Source CRUD stays separate from connector logic.",
+    eyebrow: "Capture manager",
+    title: "Source management stays separate from connectors.",
     description:
-      "This surface will manage source configuration and status without taking on fetch or normalization responsibilities.",
-  },
-  {
-    href: "/destinations",
-    label: "Destinations",
-    eyebrow: "Delivery targets",
-    title: "Delivery adapters stay behind stable boundaries.",
-    description:
-      "Destination configuration lives here while formatting and delivery remain inside the delivery package.",
+      "This surface will manage source configuration and capture state without taking on fetch or normalization responsibilities.",
   },
   {
     href: "/settings",

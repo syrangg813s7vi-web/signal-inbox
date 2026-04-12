@@ -1,8 +1,12 @@
-import type { Destination, Digest, Item } from "@signal-inbox/core";
+import type {
+  DeliveryDestination,
+  Digest,
+  ReviewObject,
+} from "@signal-inbox/core";
 
 export interface DeliveryRequest {
-  destination: Destination;
-  content: Item | Digest;
+  destination: DeliveryDestination;
+  content: Digest | ReviewObject;
 }
 
 export interface DeliveryResult {

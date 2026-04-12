@@ -35,12 +35,6 @@ Set this in `WORKFLOW.md`:
 
 - `tracker.project_slug`
 
-Replace:
-
-- `replace-with-linear-project-slug`
-
-with your real project slug.
-
 ### Workspace Root
 
 Default in `WORKFLOW.md`:
@@ -51,22 +45,16 @@ Ensure this directory exists and is writable.
 
 ## Expected Linear Workflow
 
-Recommended repository workflow states:
-
-- `Triage`
-- `Spec Update`
-- `Ready for Build`
-- `In Build`
-- `Verification`
-- `Human Review`
-- `Done`
-
-Current Symphony routing in `WORKFLOW.md` is set to actively work on:
+The current repository workflow is centered on these active and review states:
 
 - `In Progress`
 - `In Review`
 
-This keeps orchestration focused on active implementation and review handoff instead of triage-only work.
+Terminal state:
+
+- `Done`
+
+This keeps orchestration focused on active implementation and explicit human review handoff.
 
 ## Required Repository Context
 
@@ -86,8 +74,26 @@ Symphony agents should always read:
 2. Ensure the issue has a clear scope and acceptance criteria.
 3. Move the issue into an active implementation state.
 4. Start Symphony against this repository's `WORKFLOW.md`.
-5. When the work is branch / commit / push / PR ready, move it to `In Review`.
+5. When the work is branch / commit / push / PR ready and the review URL requirement is met for web-facing work, move it to `In Review`.
 6. Mark the issue `Done` only after human review and acceptance.
+
+## Architecture Alignment
+
+Symphony work should align with the repository's current architecture:
+
+- product domains:
+  - `Capture`
+  - `Knowledge`
+  - `Review`
+- implementation layers:
+  - `Capture Layer`
+  - `Normalization Layer`
+  - `Knowledge Layer`
+  - `Review Layer`
+
+The first implementation slice is:
+
+- `RSS source -> CaptureEntry -> RawAsset -> Item -> basic knowledge processing -> Inbox`
 
 ## Notes
 

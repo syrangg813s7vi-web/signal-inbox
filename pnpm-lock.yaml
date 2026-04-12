@@ -17,6 +17,9 @@ importers:
       '@signal-inbox/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@signal-inbox/capture':
+        specifier: workspace:*
+        version: link:../../packages/capture
       '@signal-inbox/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
@@ -29,9 +32,15 @@ importers:
       '@signal-inbox/delivery':
         specifier: workspace:*
         version: link:../../packages/delivery
-      '@signal-inbox/processors':
+      '@signal-inbox/knowledge':
         specifier: workspace:*
-        version: link:../../packages/processors
+        version: link:../../packages/knowledge
+      '@signal-inbox/normalization':
+        specifier: workspace:*
+        version: link:../../packages/normalization
+      '@signal-inbox/review':
+        specifier: workspace:*
+        version: link:../../packages/review
       next:
         specifier: ^15.3.0
         version: 15.5.15(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -63,6 +72,12 @@ importers:
 
   packages/ai: {}
 
+  packages/capture:
+    dependencies:
+      '@signal-inbox/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/connectors:
     dependencies:
       '@signal-inbox/core':
@@ -79,7 +94,19 @@ importers:
         specifier: workspace:*
         version: link:../core
 
-  packages/processors:
+  packages/knowledge:
+    dependencies:
+      '@signal-inbox/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/normalization:
+    dependencies:
+      '@signal-inbox/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/review:
     dependencies:
       '@signal-inbox/core':
         specifier: workspace:*

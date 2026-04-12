@@ -1,25 +1,28 @@
 export const APP_NAME = "Signal Inbox";
 
-export const V1_PROCESSOR_ORDER = [
+export const V1_KNOWLEDGE_PIPELINE = [
+  "score",
   "dedupe",
   "summarize",
   "classify",
   "group",
 ] as const;
 
-export type ProcessorName = (typeof V1_PROCESSOR_ORDER)[number];
+export type KnowledgeStepName = (typeof V1_KNOWLEDGE_PIPELINE)[number];
 
 export interface CoreModuleStatus {
-  sourceManager: "pending";
-  unifiedIngest: "pending";
-  digestGenerator: "pending";
+  capture: "pending";
+  normalization: "pending";
+  knowledge: "pending";
+  review: "pending";
   jobs: "pending";
 }
 
 export const coreModuleStatus: CoreModuleStatus = {
-  sourceManager: "pending",
-  unifiedIngest: "pending",
-  digestGenerator: "pending",
+  capture: "pending",
+  normalization: "pending",
+  knowledge: "pending",
+  review: "pending",
   jobs: "pending",
 };
 
