@@ -55,10 +55,23 @@ Use the pinned Node version:
 nvm use
 ```
 
+Or with `mise`:
+
+```bash
+mise install
+mise exec -- node -v
+```
+
 Install dependencies:
 
 ```bash
 pnpm install
+```
+
+If your shell is not already using Node 22, run repo commands through `mise`:
+
+```bash
+mise exec -- pnpm install
 ```
 
 Start local services:
@@ -78,9 +91,22 @@ Run the web app:
 pnpm dev
 ```
 
+With `mise`:
+
+```bash
+mise exec -- pnpm dev
+```
+
 Other useful commands:
 
 ```bash
 pnpm validate
 pnpm dev:services:stop
+```
+
+With `mise`:
+
+```bash
+mise exec -- pnpm validate
+mise exec -- pnpm dev:services:stop
 ```
