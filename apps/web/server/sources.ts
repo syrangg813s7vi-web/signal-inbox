@@ -1,4 +1,5 @@
 import { listRssSources, type RssSourceRecord } from "@signal-inbox/capture";
+import { runMigrations } from "@signal-inbox/db";
 
 export interface SourceStatusViewModel {
   badgeLabel: string;
@@ -23,9 +24,11 @@ const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
 });
 
+let sourceStorageBootstrapPromise: Promise<void> | null = null;
+
 export async function getSourcesPageViewModel(): Promise<SourcesPageViewModel> {
   try {
-    const sources = await listRssSources();
+    const sources = await withSourceStorageReady(() => listRssSources());
 
     return {
       isAvailable: true,
@@ -44,6 +47,19 @@ export async function getSourcesPageViewModel(): Promise<SourcesPageViewModel> {
         unavailableReason: getUnavailableReason(storageUnavailableKind),
         sources: [],
       };
+    }
+
+    throw error;
+  }
+}
+
+export async function withSourceStorageReady<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (getStorageUnavailableKind(error) === "schema" && shouldAttemptPreviewSchemaBootstrap()) {
+      await ensureSourceStorageSchema();
+      return operation();
     }
 
     throw error;
@@ -132,6 +148,20 @@ function toneForStatus(status: RssSourceRecord["status"]): SourceStatusViewModel
 
 function formatTimestamp(value: Date): string {
   return timestampFormatter.format(value);
+}
+
+function shouldAttemptPreviewSchemaBootstrap(): boolean {
+  return process.env.VERCEL_ENV === "preview";
+}
+
+async function ensureSourceStorageSchema() {
+  if (!sourceStorageBootstrapPromise) {
+    sourceStorageBootstrapPromise = runMigrations().finally(() => {
+      sourceStorageBootstrapPromise = null;
+    });
+  }
+
+  await sourceStorageBootstrapPromise;
 }
 
 export function isStorageUnavailableError(error: unknown): boolean {

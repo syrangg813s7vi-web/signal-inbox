@@ -5,6 +5,7 @@ export {
   getDatabaseUrl,
   type SignalInboxDatabase,
 } from "./client";
+export { runMigrations } from "./migrate";
 export {
   captureEntries,
   captureEntryStatusEnum,

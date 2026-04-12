@@ -23,6 +23,13 @@ export async function runMigrations(databaseUrl = process.env.DATABASE_URL) {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+async function main() {
   await runMigrations();
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  void main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
