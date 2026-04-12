@@ -8,7 +8,7 @@ export function SurfacePlaceholder({
   description
 }: SurfacePlaceholderProps) {
   return (
-    <section className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-8">
+    <section className="rounded-[2rem] border border-[var(--card-border)] bg-[var(--card)] p-8">
       <p className="text-sm uppercase tracking-[0.24em] text-[var(--accent-strong)]">
         Planned scope
       </p>
