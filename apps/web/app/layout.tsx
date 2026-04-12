@@ -3,17 +3,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { appConfig } from "../lib/app-config";
+import { appNavItems } from "../lib/navigation";
 
 import "./globals.css";
-
-const navigationItems = [
-  { href: "/", label: "Home" },
-  { href: "/inbox", label: "Inbox" },
-  { href: "/digest", label: "Digest" },
-  { href: "/sources", label: "Sources" },
-  { href: "/destinations", label: "Destinations" },
-  { href: "/settings", label: "Settings" },
-] as const;
 
 export const metadata: Metadata = {
   title: appConfig.name,
@@ -40,7 +32,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
             </div>
 
             <nav aria-label="Primary" className="flex flex-wrap gap-2">
-              {navigationItems.map((item) => (
+              {appNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
