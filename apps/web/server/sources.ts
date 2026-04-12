@@ -291,6 +291,10 @@ function getBootstrapFailureDetail(error: unknown): string | null {
     if (message) {
       return message;
     }
+
+    if (candidate.code === "42501") {
+      return "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.";
+    }
   }
 
   return null;
