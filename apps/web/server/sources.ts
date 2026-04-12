@@ -7,6 +7,8 @@ export interface SourceStatusViewModel {
 }
 
 export interface SourcesPageViewModel {
+  isAvailable: boolean;
+  unavailableReason: string | null;
   sources: Array<
     RssSourceRecord & {
       statusView: SourceStatusViewModel;
@@ -20,14 +22,29 @@ const timestampFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 export async function getSourcesPageViewModel(): Promise<SourcesPageViewModel> {
-  const sources = await listRssSources();
+  try {
+    const sources = await listRssSources();
 
-  return {
-    sources: sources.map((source) => ({
-      ...source,
-      statusView: getStatusView(source),
-    })),
-  };
+    return {
+      isAvailable: true,
+      unavailableReason: null,
+      sources: sources.map((source) => ({
+        ...source,
+        statusView: getStatusView(source),
+      })),
+    };
+  } catch (error) {
+    if (isStorageUnavailableError(error)) {
+      return {
+        isAvailable: false,
+        unavailableReason:
+          "Source storage is unavailable in this environment. Configure the database to create, list, pause, or reactivate RSS sources.",
+        sources: [],
+      };
+    }
+
+    throw error;
+  }
 }
 
 function getStatusView(source: RssSourceRecord): SourceStatusViewModel {
@@ -112,4 +129,21 @@ function toneForStatus(status: RssSourceRecord["status"]): SourceStatusViewModel
 
 function formatTimestamp(value: Date): string {
   return timestampFormatter.format(value);
+}
+
+export function isStorageUnavailableError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  if (error.message.includes("DATABASE_URL must be set")) {
+    return true;
+  }
+
+  return (
+    error.message.includes("connect") ||
+    error.message.includes("Connection terminated") ||
+    error.message.includes("ECONNREFUSED") ||
+    error.message.includes("ENOTFOUND")
+  );
 }

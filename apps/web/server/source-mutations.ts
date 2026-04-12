@@ -6,6 +6,7 @@ import {
   SourceNotFoundError,
   SourceValidationError,
 } from "@signal-inbox/capture";
+import { isStorageUnavailableError } from "./sources";
 
 export async function createRssSourceFromFormData(formData: FormData) {
   return createRssSource({
@@ -32,6 +33,10 @@ export function getMutationErrorMessage(error: unknown): string {
     error instanceof SourceNotFoundError
   ) {
     return error.message;
+  }
+
+  if (isStorageUnavailableError(error)) {
+    return "Source storage is unavailable in this environment.";
   }
 
   return "The source update could not be completed.";

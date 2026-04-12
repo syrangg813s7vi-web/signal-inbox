@@ -34,11 +34,15 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
 
           {noticeMessage ? <Banner tone="notice" message={noticeMessage} /> : null}
           {errorMessage ? <Banner tone="error" message={errorMessage} /> : null}
+          {!viewModel.isAvailable && viewModel.unavailableReason ? (
+            <Banner tone="warning" message={viewModel.unavailableReason} />
+          ) : null}
 
           <form action="/sources/create" method="post" className="mt-6 space-y-4">
             <label className="block">
               <span className="text-sm font-medium text-[var(--foreground)]">Name</span>
               <input
+                disabled={!viewModel.isAvailable}
                 required
                 name="name"
                 type="text"
@@ -50,6 +54,7 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
             <label className="block">
               <span className="text-sm font-medium text-[var(--foreground)]">RSS URL</span>
               <input
+                disabled={!viewModel.isAvailable}
                 required
                 name="sourceUrl"
                 type="url"
@@ -61,6 +66,7 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
             <label className="block">
               <span className="text-sm font-medium text-[var(--foreground)]">Topic</span>
               <input
+                disabled={!viewModel.isAvailable}
                 name="topic"
                 type="text"
                 placeholder="AI"
@@ -69,8 +75,9 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
             </label>
 
             <button
+              disabled={!viewModel.isAvailable}
               type="submit"
-              className="inline-flex rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-medium text-[var(--panel-strong)] transition hover:bg-[var(--accent)]"
+              className="inline-flex rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-medium text-[var(--panel-strong)] transition enabled:hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Add Source
             </button>
@@ -95,7 +102,9 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
           <div className="mt-6 space-y-4">
             {viewModel.sources.length === 0 ? (
               <div className="rounded-[1.5rem] border border-dashed border-[var(--border)] bg-[rgba(29,34,28,0.03)] px-5 py-8 text-sm leading-6 text-[var(--muted)]">
-                No RSS sources yet. Add one above to initialize source state and the sync-status placeholder.
+                {viewModel.isAvailable
+                  ? "No RSS sources yet. Add one above to initialize source state and the sync-status placeholder."
+                  : "No sources can be loaded until storage is configured for this environment."}
               </div>
             ) : (
               viewModel.sources.map((source) => (
@@ -137,8 +146,9 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                         <form action={`/sources/${source.id}/reactivate`} method="post">
                           <input type="hidden" name="sourceId" value={source.id} />
                           <button
+                            disabled={!viewModel.isAvailable}
                             type="submit"
-                            className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--panel-strong)] transition hover:opacity-90"
+                            className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--panel-strong)] transition enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Reactivate
                           </button>
@@ -147,8 +157,9 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                         <form action={`/sources/${source.id}/pause`} method="post">
                           <input type="hidden" name="sourceId" value={source.id} />
                           <button
+                            disabled={!viewModel.isAvailable}
                             type="submit"
-                            className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--accent-soft)]"
+                            className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition enabled:hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Pause
                           </button>
@@ -166,10 +177,12 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
   );
 }
 
-function Banner({ message, tone }: { message: string; tone: "error" | "notice" }) {
+function Banner({ message, tone }: { message: string; tone: "error" | "notice" | "warning" }) {
   const toneClassName =
     tone === "error"
       ? "border-[rgba(181,71,33,0.28)] bg-[rgba(181,71,33,0.08)] text-[var(--warm)]"
+      : tone === "warning"
+        ? "border-[rgba(29,34,28,0.16)] bg-[rgba(29,34,28,0.05)] text-[var(--foreground)]"
       : "border-[rgba(31,107,92,0.22)] bg-[rgba(31,107,92,0.08)] text-[var(--accent)]";
 
   return <p className={`mt-6 rounded-2xl border px-4 py-3 text-sm leading-6 ${toneClassName}`}>{message}</p>;
