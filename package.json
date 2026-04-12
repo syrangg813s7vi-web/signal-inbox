@@ -12,6 +12,7 @@
     "start": "pnpm --filter @signal-inbox/web start",
     "db:generate": "pnpm --filter @signal-inbox/db db:generate",
     "db:migrate": "pnpm --filter @signal-inbox/db db:migrate",
+    "db:smoke": "pnpm --filter @signal-inbox/db db:smoke",
     "typecheck": "pnpm --filter @signal-inbox/web typecheck && pnpm --filter @signal-inbox/db typecheck",
     "check": "pnpm typecheck && pnpm build"
   },

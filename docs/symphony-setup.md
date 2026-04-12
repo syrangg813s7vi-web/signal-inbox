@@ -29,6 +29,15 @@ Before running Symphony, configure:
 
 Required by Symphony for Linear access.
 
+### DATABASE_URL
+
+Required for repository paths that talk to PostgreSQL directly.
+
+For `pnpm db:smoke`, either:
+
+- set `DATABASE_URL` to a disposable PostgreSQL database
+- or run on a machine with local PostgreSQL CLI tools available so the smoke test can start a temporary cluster with `initdb`, `pg_ctl`, and `createdb`
+
 ### Linear Project Slug
 
 Set this in `WORKFLOW.md`:
