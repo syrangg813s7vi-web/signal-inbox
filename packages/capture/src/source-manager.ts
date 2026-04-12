@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { createDbFromClient, createSqlClient, sourceSyncState, sources } from "@signal-inbox/db";
 
@@ -49,51 +49,13 @@ export async function listRssSources(databaseUrl?: string): Promise<RssSourceRec
 
   try {
     const rows = await db
-      .select({
-        id: sources.id,
-        name: sources.name,
-        sourceType: sources.sourceType,
-        sourceRef: sources.sourceRef,
-        sourceUrl: sources.sourceUrl,
-        status: sources.status,
-        topic: sources.topic,
-        metadata: sources.metadata,
-        createdAt: sources.createdAt,
-        updatedAt: sources.updatedAt,
-        syncSourceId: sourceSyncState.sourceId,
-        syncCursor: sourceSyncState.cursor,
-        syncLastSyncedAt: sourceSyncState.lastSyncedAt,
-        syncLastSuccessAt: sourceSyncState.lastSuccessAt,
-        syncLastErrorAt: sourceSyncState.lastErrorAt,
-        syncLastErrorMessage: sourceSyncState.lastErrorMessage,
-      })
+      .select(sourceSelection)
       .from(sources)
       .leftJoin(sourceSyncState, eq(sourceSyncState.sourceId, sources.id))
       .where(eq(sources.sourceType, "rss"))
       .orderBy(desc(sources.createdAt), desc(sources.updatedAt));
 
-    return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      sourceType: row.sourceType,
-      sourceRef: row.sourceRef,
-      sourceUrl: row.sourceUrl,
-      status: row.status,
-      topic: row.topic,
-      metadata: row.metadata,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      syncState:
-        row.syncSourceId !== null
-          ? {
-              cursor: row.syncCursor,
-              lastSyncedAt: row.syncLastSyncedAt,
-              lastSuccessAt: row.syncLastSuccessAt,
-              lastErrorAt: row.syncLastErrorAt,
-              lastErrorMessage: row.syncLastErrorMessage,
-            }
-          : null,
-    }));
+    return rows.map(mapSourceRow);
   } finally {
     await client.end();
   }
@@ -195,10 +157,13 @@ async function updateSourceStatus(
       throw new SourceNotFoundError("Source not found.");
     }
 
-    return {
-      ...updatedSource,
-      syncState: null,
-    };
+    const source = await getRssSourceById(sourceId, databaseUrl);
+
+    if (!source) {
+      throw new SourceNotFoundError("Source not found.");
+    }
+
+    return source;
   } finally {
     await client.end();
   }
@@ -239,6 +204,86 @@ function normalizeSourceUrl(sourceUrl: string): string {
 
 function buildSourceRef(sourceUrl: string): string {
   return sourceUrl;
+}
+
+const sourceSelection = {
+  id: sources.id,
+  name: sources.name,
+  sourceType: sources.sourceType,
+  sourceRef: sources.sourceRef,
+  sourceUrl: sources.sourceUrl,
+  status: sources.status,
+  topic: sources.topic,
+  metadata: sources.metadata,
+  createdAt: sources.createdAt,
+  updatedAt: sources.updatedAt,
+  syncSourceId: sourceSyncState.sourceId,
+  syncCursor: sourceSyncState.cursor,
+  syncLastSyncedAt: sourceSyncState.lastSyncedAt,
+  syncLastSuccessAt: sourceSyncState.lastSuccessAt,
+  syncLastErrorAt: sourceSyncState.lastErrorAt,
+  syncLastErrorMessage: sourceSyncState.lastErrorMessage,
+};
+
+interface SourceRow {
+  id: string;
+  name: string;
+  sourceType: "rss";
+  sourceRef: string;
+  sourceUrl: string | null;
+  status: SourceStatus;
+  topic: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+  syncSourceId: string | null;
+  syncCursor: string | null;
+  syncLastSyncedAt: Date | null;
+  syncLastSuccessAt: Date | null;
+  syncLastErrorAt: Date | null;
+  syncLastErrorMessage: string | null;
+}
+
+async function getRssSourceById(sourceId: string, databaseUrl?: string): Promise<RssSourceRecord | null> {
+  const client = createSqlClient(databaseUrl);
+  const db = createDbFromClient(client);
+
+  try {
+    const [row] = await db
+      .select(sourceSelection)
+      .from(sources)
+      .leftJoin(sourceSyncState, eq(sourceSyncState.sourceId, sources.id))
+      .where(and(eq(sources.id, sourceId), eq(sources.sourceType, "rss")));
+
+    return row ? mapSourceRow(row) : null;
+  } finally {
+    await client.end();
+  }
+}
+
+function mapSourceRow(row: SourceRow): RssSourceRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    sourceType: row.sourceType,
+    sourceRef: row.sourceRef,
+    sourceUrl: row.sourceUrl,
+    status: row.status,
+    topic: row.topic,
+    metadata: row.metadata,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    syncState:
+      row.syncSourceId !== null
+        ? {
+            cursor: row.syncCursor,
+            lastSyncedAt: row.syncLastSyncedAt,
+            lastSuccessAt: row.syncLastSuccessAt,
+            lastErrorAt: row.syncLastErrorAt,
+            lastErrorMessage: row.syncLastErrorMessage,
+          }
+        : null,
+  };
 }
 
 function unwrapPostgresError(error: unknown): PostgresErrorLike {

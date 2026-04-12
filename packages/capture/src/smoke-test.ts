@@ -6,6 +6,7 @@ import {
   listRssSources,
   pauseSource,
   reactivateSource,
+  SourceNotFoundError,
 } from "./index";
 
 import { runMigrations } from "../../db/src/migrate";
@@ -49,15 +50,31 @@ async function runCaptureSmokeTest(databaseUrl: string) {
   assert.equal(sourcesAfterCreate[0]?.status, "active");
   assert.notEqual(sourcesAfterCreate[0]?.syncState, null);
 
-  await pauseSource(createdSource.id, databaseUrl);
+  const pausedSource = await pauseSource(createdSource.id, databaseUrl);
+  assert.equal(pausedSource.status, "paused");
+  assert.notEqual(pausedSource.syncState, null);
+
   const sourcesAfterPause = await listRssSources(databaseUrl);
   assert.equal(sourcesAfterPause[0]?.status, "paused");
   assert.notEqual(sourcesAfterPause[0]?.syncState, null);
 
-  await reactivateSource(createdSource.id, databaseUrl);
+  const reactivatedSource = await reactivateSource(createdSource.id, databaseUrl);
+  assert.equal(reactivatedSource.status, "active");
+  assert.notEqual(reactivatedSource.syncState, null);
+
   const sourcesAfterReactivate = await listRssSources(databaseUrl);
   assert.equal(sourcesAfterReactivate[0]?.status, "active");
   assert.notEqual(sourcesAfterReactivate[0]?.syncState, null);
+
+  await expectSourceValidationError(
+    () => pauseSource("", databaseUrl),
+    "Source id is required.",
+  );
+
+  await expectSourceNotFoundError(
+    () => reactivateSource(randomUUID(), databaseUrl),
+    "Source not found.",
+  );
 
   await expectSourceValidationError(
     () =>
@@ -107,6 +124,18 @@ async function expectSourceConflictError(operation: () => Promise<unknown>, expe
   }
 
   assert.fail(`Expected SourceConflictError with message: ${expectedMessage}`);
+}
+
+async function expectSourceNotFoundError(operation: () => Promise<unknown>, expectedMessage: string) {
+  try {
+    await operation();
+  } catch (error) {
+    assert.ok(error instanceof SourceNotFoundError);
+    assert.equal(error.message, expectedMessage);
+    return;
+  }
+
+  assert.fail(`Expected SourceNotFoundError with message: ${expectedMessage}`);
 }
 
 function readErrorMessage(error: unknown): string {
