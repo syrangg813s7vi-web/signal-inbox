@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import {
+  bootstrapSourceStorageSchema,
   captureEntries,
   createDbFromClient,
   createSqlClient,
@@ -25,17 +26,25 @@ type PostgresErrorLike = Error & {
 async function main() {
   const tempInstance = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
   const databaseUrl = tempInstance?.databaseUrl ?? process.env.DATABASE_URL;
+  const compatibilityTempInstance = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
+  const compatibilityDatabaseUrl = compatibilityTempInstance?.databaseUrl ?? process.env.DATABASE_URL;
 
   assert.ok(databaseUrl, "DATABASE_URL must be set or a temporary PostgreSQL instance must start.");
+  assert.ok(
+    compatibilityDatabaseUrl,
+    "DATABASE_URL must be set or a temporary PostgreSQL instance must start.",
+  );
 
   process.env.DATABASE_URL = databaseUrl;
 
   try {
     await runMigrations(databaseUrl);
     await runSmokeTest(databaseUrl);
+    await runBootstrapCompatibilitySmokeTest(compatibilityDatabaseUrl);
     console.log("Database smoke test passed.");
   } finally {
     await tempInstance?.cleanup();
+    await compatibilityTempInstance?.cleanup();
   }
 }
 
@@ -172,6 +181,12 @@ async function expectPostgresError(
   }
 
   assert.fail(`Expected PostgreSQL error ${expectedCode} for ${expectedConstraint}.`);
+}
+
+async function runBootstrapCompatibilitySmokeTest(databaseUrl: string) {
+  await bootstrapSourceStorageSchema(databaseUrl);
+  await runMigrations(databaseUrl);
+  await runSmokeTest(databaseUrl);
 }
 
 function unwrapPostgresError(error: unknown): PostgresErrorLike {

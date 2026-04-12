@@ -94,20 +94,28 @@ async function readLastMigration(
 }
 
 async function executeMigrationStatement(client: SqlExecutor, statement: string) {
+  if (await shouldSkipBootstrapCompatibleStatement(client, statement)) {
+    return;
+  }
+
   try {
     await client.unsafe(statement);
   } catch (error) {
-    if (!(await canSkipPgcryptoExtensionError(client, statement, error))) {
+    if (!(await canSkipMigrationStatementError(client, statement, error))) {
       throw error;
     }
   }
 }
 
-async function canSkipPgcryptoExtensionError(
+async function canSkipMigrationStatementError(
   client: SqlExecutor,
   statement: string,
   error: unknown,
 ) {
+  if (canSkipDuplicateBootstrapObjectError(statement, error)) {
+    return true;
+  }
+
   if (!isPgcryptoExtensionStatement(statement)) {
     return false;
   }
@@ -122,6 +130,101 @@ async function canSkipPgcryptoExtensionError(
   }
 
   return hasGenRandomUuidFunction(client);
+}
+
+function canSkipDuplicateBootstrapObjectError(statement: string, error: unknown) {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String(error.code)
+      : null;
+
+  if (code !== "42P07" && code !== "42710") {
+    return false;
+  }
+
+  const normalizedStatement = statement.replace(/\s+/g, " ").trim().toLowerCase();
+
+  return (
+    normalizedStatement.includes('create type "public"."source_status"') ||
+    normalizedStatement.includes('create type "public"."source_type"') ||
+    normalizedStatement.includes('create table "source_sync_state"') ||
+    normalizedStatement.includes('create table "sources"') ||
+    normalizedStatement.includes(
+      'alter table "source_sync_state" add constraint "source_sync_state_source_id_sources_id_fk"',
+    ) ||
+    normalizedStatement.includes('create unique index "sources_source_type_source_ref_key"') ||
+    normalizedStatement.includes('create index "sources_status_idx"') ||
+    normalizedStatement.includes('create index "sources_topic_idx"')
+  );
+}
+
+async function shouldSkipBootstrapCompatibleStatement(client: SqlExecutor, statement: string) {
+  const normalizedStatement = statement.replace(/\s+/g, " ").trim().toLowerCase();
+
+  if (normalizedStatement.includes('create type "public"."source_status"')) {
+    return await typeExists(client, "source_status");
+  }
+
+  if (normalizedStatement.includes('create type "public"."source_type"')) {
+    return await typeExists(client, "source_type");
+  }
+
+  if (normalizedStatement.includes('create table "source_sync_state"')) {
+    return await relationExists(client, "public.source_sync_state");
+  }
+
+  if (normalizedStatement.includes('create table "sources"')) {
+    return await relationExists(client, "public.sources");
+  }
+
+  if (
+    normalizedStatement.includes(
+      'alter table "source_sync_state" add constraint "source_sync_state_source_id_sources_id_fk"',
+    )
+  ) {
+    return await constraintExists(client, "source_sync_state_source_id_sources_id_fk");
+  }
+
+  if (normalizedStatement.includes('create unique index "sources_source_type_source_ref_key"')) {
+    return await relationExists(client, "public.sources_source_type_source_ref_key");
+  }
+
+  if (normalizedStatement.includes('create index "sources_status_idx"')) {
+    return await relationExists(client, "public.sources_status_idx");
+  }
+
+  if (normalizedStatement.includes('create index "sources_topic_idx"')) {
+    return await relationExists(client, "public.sources_topic_idx");
+  }
+
+  return false;
+}
+
+async function typeExists(client: SqlExecutor, typeName: string) {
+  const [row] = await client.unsafe<Array<{ exists: boolean }>>(
+    "select exists (select 1 from pg_type where typname = $1) as exists",
+    [typeName],
+  );
+
+  return row?.exists ?? false;
+}
+
+async function relationExists(client: SqlExecutor, relationName: string) {
+  const [row] = await client.unsafe<Array<{ exists: boolean }>>(
+    "select to_regclass($1) is not null as exists",
+    [relationName],
+  );
+
+  return row?.exists ?? false;
+}
+
+async function constraintExists(client: SqlExecutor, constraintName: string) {
+  const [row] = await client.unsafe<Array<{ exists: boolean }>>(
+    "select exists (select 1 from pg_constraint where conname = $1) as exists",
+    [constraintName],
+  );
+
+  return row?.exists ?? false;
 }
 
 async function hasGenRandomUuidFunction(client: SqlExecutor) {
