@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --project tsconfig.json --noEmit"
+    "typecheck": "next typegen && tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
     "@signal-inbox/capture": "workspace:*",
