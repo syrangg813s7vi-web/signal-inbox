@@ -75,7 +75,15 @@ export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
       };
     }
 
-    throw error;
+    console.error("inbox view model failed", {
+      message: error instanceof Error ? error.message : "Unknown inbox failure.",
+    });
+
+    return {
+      isAvailable: false,
+      items: [],
+      unavailableReason: getUnexpectedUnavailableReason(error),
+    };
   }
 }
 
@@ -211,6 +219,18 @@ function getUnavailableReason(kind: InboxUnavailableKind) {
   }
 
   return "Inbox data is unavailable in this environment.";
+}
+
+function getUnexpectedUnavailableReason(error: unknown) {
+  if (process.env.VERCEL_ENV === "preview") {
+    return "Inbox data is temporarily unavailable in this preview environment.";
+  }
+
+  if (error instanceof Error && error.message) {
+    return `Inbox data is unavailable: ${error.message}`;
+  }
+
+  return "Inbox data is unavailable because an unexpected server error occurred.";
 }
 
 function shouldAttemptPreviewSchemaBootstrap() {
