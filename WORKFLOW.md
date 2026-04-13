@@ -159,7 +159,18 @@ When an issue branch already has a PR, run this protocol before treating the wor
 4. Do not treat "no formal review objects" as equivalent to "no review feedback" when top-level PR comments contain blockers or required validation gaps.
 5. After each significant push on a PR branch, re-read the PR comment stream before deciding the issue is ready for `In Review`.
 6. Before any transition to `In Review`, confirm there are no outstanding actionable PR comments.
-7. If actionable PR comments remain, keep the issue in `In Progress` and continue the implementation or validation loop.
+7. For each actionable PR comment, leave visible resolution evidence on the PR before treating it as closed.
+   - If the comment was fixed, reply with a short note describing the fix and the validation evidence.
+   - If the comment is being rejected, reply with explicit, justified pushback.
+8. If actionable PR comments remain, keep the issue in `In Progress` and continue the implementation or validation loop.
+
+## PR Comment Preservation Rules
+
+- Never delete, edit, or minimize a human-authored PR comment from the agent workflow.
+- Treat issue-owner, reviewer, and other human-authored PR comments as durable review records.
+- Do not remove or hide a blocker comment just because later work appears to address it.
+- Close the loop on actionable PR comments through visible reply evidence, not comment deletion.
+- The agent may not call GitHub APIs that delete PR comments or issue comments authored by a human.
 
 ## Project-Specific Constraints
 
