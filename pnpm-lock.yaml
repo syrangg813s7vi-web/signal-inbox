@@ -130,6 +130,9 @@ importers:
 
   packages/knowledge:
     dependencies:
+      '@signal-inbox/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@signal-inbox/db':
         specifier: workspace:*
         version: link:../db
