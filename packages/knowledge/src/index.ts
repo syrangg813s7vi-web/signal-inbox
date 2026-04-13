@@ -4,7 +4,13 @@ export {
   ItemNotFoundError,
   ItemProcessingValidationError,
 } from "./process-item";
-export { V1_PROCESSING_ORDER, type ProcessItemInput, type ProcessItemResult } from "./types";
+export {
+  V1_PROCESSING_ORDER,
+  type KnowledgeDestinationRecord,
+  type KnowledgeSyncResult,
+  type ProcessItemInput,
+  type ProcessItemResult,
+} from "./types";
 
 export const knowledgePackage = {
   name: "@signal-inbox/knowledge",

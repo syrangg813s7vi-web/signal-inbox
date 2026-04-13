@@ -13,6 +13,8 @@ import {
   itemGroupMembers,
   itemGroups,
   items,
+  knowledgeDestinations,
+  notes,
   rawAssets,
   runMigrations,
   sourceSyncState,
@@ -46,9 +48,11 @@ interface ItemMetadata {
     groupId?: string | null;
     lastCompletedStep?: string | null;
     lastError?: string | null;
+    noteId?: string | null;
     order?: string[];
     pipelineVersion?: string;
     status?: string;
+    syncedDestinationCount?: number;
   };
   rss?: {
     feedLanguage?: string;
@@ -271,6 +275,8 @@ async function runSmokeTest(
     const enrichmentRowsAfterFirstRun = await db.select().from(enrichments);
     const itemGroupRowsAfterFirstRun = await db.select().from(itemGroups);
     const itemGroupMemberRowsAfterFirstRun = await db.select().from(itemGroupMembers);
+    const knowledgeDestinationRows = await db.select().from(knowledgeDestinations);
+    const noteRows = await db.select().from(notes);
     const rawAssetsAfterFirstRun = await db.select().from(rawAssets);
     const itemsAfterFirstRun = await db.select().from(items);
     const firstNormalizedItem = itemsAfterFirstRun.find(
@@ -281,6 +287,12 @@ async function runSmokeTest(
       (enrichment) => enrichment.itemId === firstNormalizedItem?.id,
     );
     const firstEnrichmentMetadata = (firstEnrichment?.metadata ?? {}) as EnrichmentMetadata;
+    const firstNote = noteRows.find((note) => note.itemId === firstNormalizedItem?.id);
+    const firstNoteSync = ((firstNote?.metadata ?? {}) as {
+      sync?: {
+        destinations?: Record<string, { status?: string }>;
+      };
+    }).sync;
 
     assert.ok(syncStateAfterFirstRun);
     assert.ok(syncStateAfterFirstRun.lastSyncedAt);
@@ -295,6 +307,8 @@ async function runSmokeTest(
     assert.equal(rawAssetsAfterFirstRun.length, 4);
     assert.equal(itemsAfterFirstRun.length, 4);
     assert.equal(enrichmentRowsAfterFirstRun.length, 4);
+    assert.equal(knowledgeDestinationRows.length, 2);
+    assert.equal(noteRows.length >= 1, true);
     assert.equal(itemGroupRowsAfterFirstRun.length, 1);
     assert.equal(itemGroupMemberRowsAfterFirstRun.length, 4);
     assert.equal(rawAssetsAfterFirstRun.every((rawAsset) => rawAsset.status === "normalized"), true);
@@ -307,6 +321,8 @@ async function runSmokeTest(
     assert.equal(firstNormalizedItemMetadata.connectorType, "rss");
     assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.status, "processed");
     assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.lastCompletedStep, "group");
+    assert.equal(typeof firstNormalizedItemMetadata.knowledgeProcessing?.noteId, "string");
+    assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.syncedDestinationCount, 2);
     assert.deepEqual(firstNormalizedItemMetadata.knowledgeProcessing?.order, [
       "score",
       "dedupe",
@@ -326,6 +342,10 @@ async function runSmokeTest(
     assert.equal(firstEnrichmentMetadata.pipelineVersion, "v1");
     assert.equal(firstEnrichmentMetadata.lastCompletedStep, "group");
     assert.equal(firstEnrichmentMetadata.steps?.dedupe?.dedupeKey, "url:https://example.com/articles/1");
+    assert.equal(firstNote?.title, "First article");
+    assert.equal(firstNote?.noteType, "reference");
+    assert.equal(firstNoteSync?.destinations?.notion?.status, "success");
+    assert.equal(firstNoteSync?.destinations?.obsidian?.status, "success");
     assert.equal(syncStateAfterFirstRun.sourceId, createdSource.id);
   } finally {
     await dbClient.end();

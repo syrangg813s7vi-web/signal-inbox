@@ -36,6 +36,16 @@ export const itemTypeEnum = pgEnum("item_type", ["article"]);
 export const itemStatusEnum = pgEnum("item_status", ["new", "processed", "archived"]);
 
 export const itemGroupTypeEnum = pgEnum("item_group_type", ["topic"]);
+export const noteTypeEnum = pgEnum("note_type", ["reference", "summary"]);
+export const knowledgeDestinationTypeEnum = pgEnum("knowledge_destination_type", [
+  "notion",
+  "obsidian",
+]);
+export const knowledgeDestinationStatusEnum = pgEnum("knowledge_destination_status", [
+  "active",
+  "disabled",
+  "error",
+]);
 
 export const sources = pgTable(
   "sources",
@@ -226,5 +236,58 @@ export const itemGroupMembers = pgTable(
   (table) => [
     primaryKey({ columns: [table.groupId, table.itemId], name: "item_group_members_pkey" }),
     index("item_group_members_item_id_idx").on(table.itemId),
+  ],
+);
+
+export const notes = pgTable(
+  "notes",
+  {
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    noteType: noteTypeEnum("note_type").notNull(),
+    title: text("title").notNull(),
+    bodyMd: text("body_md").notNull(),
+    highlights: text("highlights").array().notNull().default(sql`'{}'::text[]`),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    reviewWeight: real("review_weight"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(emptyJsonb),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("notes_item_id_key").on(table.itemId),
+    index("notes_note_type_idx").on(table.noteType),
+    index("notes_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const knowledgeDestinations = pgTable(
+  "knowledge_destinations",
+  {
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
+    destinationType: knowledgeDestinationTypeEnum("destination_type").notNull(),
+    name: text("name").notNull(),
+    targetRef: text("target_ref").notNull(),
+    status: knowledgeDestinationStatusEnum("status").notNull().default("active"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(emptyJsonb),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("knowledge_destinations_type_target_ref_key").on(
+      table.destinationType,
+      table.targetRef,
+    ),
+    index("knowledge_destinations_status_idx").on(table.status),
   ],
 );

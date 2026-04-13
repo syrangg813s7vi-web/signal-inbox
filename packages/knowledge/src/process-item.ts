@@ -6,6 +6,7 @@ import {
   createSqlClient,
   enrichments,
   items,
+  notes,
   rawAssets,
   sources,
 } from "@signal-inbox/db";
@@ -13,6 +14,8 @@ import {
 import { classifyItem } from "./classify-item";
 import { dedupeItem } from "./dedupe-item";
 import { groupItem } from "./group-item";
+import { syncNoteToKnowledgeDestinations } from "./knowledge-sync";
+import { buildNoteIfPreservationWorthy } from "./note-builder";
 import { scoreItem } from "./score-item";
 import { summarizeItem } from "./summarize-item";
 import {
@@ -74,6 +77,13 @@ export async function processItem(
         throw new ItemNotFoundError(`Item ${itemId} was not found.`);
       }
 
+      const [existingNote] = await tx
+        .select({
+          id: notes.id,
+        })
+        .from(notes)
+        .where(eq(notes.itemId, item.id));
+
       const [existingEnrichment] = await tx
         .select({
           classification: enrichments.classification,
@@ -93,9 +103,11 @@ export async function processItem(
           enrichmentId: existingEnrichment.id,
           groupId: extractGroupId(item.metadata),
           itemId: item.id,
+          noteId: existingNote?.id ?? extractNoteId(item.metadata),
           processedAt,
           status: "processed",
           summaryShort: existingEnrichment.summaryShort,
+          syncedDestinationCount: extractSyncedDestinationCount(item.metadata),
           topic: existingEnrichment.topic,
         };
       }
@@ -190,7 +202,16 @@ async function runKnowledgePipeline(
     classification,
     itemId: item.id,
   });
+  const builtNote = buildNoteIfPreservationWorthy({
+    classification,
+    dedupe,
+    item: processableItem,
+    score,
+    summary,
+  });
   const processedAt = new Date();
+  let noteId: string | null = null;
+  let syncedDestinationCount = 0;
   const processingMetadata = {
     completedAt: processedAt.toISOString(),
     duplicateOfItemId: dedupe.duplicateOfItemId,
@@ -202,6 +223,10 @@ async function runKnowledgePipeline(
     pipelineVersion: "v1",
     processedAt: processedAt.toISOString(),
     status: "processed",
+    noteCreated: false,
+    noteId: null as string | null,
+    noteStatus: builtNote ? "created" : "skipped",
+    syncedDestinationCount: 0,
     steps: {
       classify: {
         classification: classification.classification,
@@ -228,6 +253,80 @@ async function runKnowledgePipeline(
       },
     },
   };
+
+  if (builtNote) {
+    const [upsertedNote] = await tx
+      .insert(notes)
+      .values({
+        bodyMd: builtNote.bodyMd,
+        highlights: builtNote.highlights,
+        itemId: item.id,
+        metadata: builtNote.metadata,
+        noteType: builtNote.noteType,
+        reviewWeight: builtNote.reviewWeight,
+        tags: builtNote.tags,
+        title: builtNote.title,
+        updatedAt: processedAt,
+      })
+      .onConflictDoUpdate({
+        set: {
+          bodyMd: builtNote.bodyMd,
+          highlights: builtNote.highlights,
+          metadata: builtNote.metadata,
+          noteType: builtNote.noteType,
+          reviewWeight: builtNote.reviewWeight,
+          tags: builtNote.tags,
+          title: builtNote.title,
+          updatedAt: processedAt,
+        },
+        target: notes.itemId,
+      })
+      .returning({
+        id: notes.id,
+        metadata: notes.metadata,
+      });
+
+    const syncResults = await syncNoteToKnowledgeDestinations(tx, {
+      ...builtNote,
+      id: upsertedNote.id,
+    });
+
+    noteId = upsertedNote.id;
+    syncedDestinationCount = syncResults.length;
+
+    await tx
+      .update(notes)
+      .set({
+        metadata: {
+          ...upsertedNote.metadata,
+          ...builtNote.metadata,
+          sync: {
+            destinations: Object.fromEntries(
+              syncResults.map((result) => [
+                result.destinationType,
+                {
+                  destinationId: result.destinationId,
+                  externalRef: result.externalRef,
+                  message: result.message,
+                  status: result.status,
+                  syncedAt: result.syncedAt,
+                  targetRef: result.targetRef,
+                },
+              ]),
+            ),
+            lastAttemptedAt: processedAt.toISOString(),
+            lastSucceededAt: syncResults.at(-1)?.syncedAt ?? processedAt.toISOString(),
+          },
+        },
+        updatedAt: processedAt,
+      })
+      .where(eq(notes.id, upsertedNote.id));
+
+    processingMetadata.noteCreated = true;
+    processingMetadata.noteId = upsertedNote.id;
+    processingMetadata.noteStatus = "created";
+    processingMetadata.syncedDestinationCount = syncResults.length;
+  }
 
   const [upsertedEnrichment] = await tx
     .insert(enrichments)
@@ -282,9 +381,11 @@ async function runKnowledgePipeline(
     enrichmentId: upsertedEnrichment.id,
     groupId: group.groupId,
     itemId: item.id,
+    noteId,
     processedAt: processedAt.toISOString(),
     status: "processed",
     summaryShort: summary.summaryShort,
+    syncedDestinationCount,
     topic: classification.topic,
   };
 }
@@ -344,4 +445,18 @@ function extractGroupId(metadata: Record<string, unknown>) {
   const groupId = knowledgeProcessing.groupId;
 
   return typeof groupId === "string" ? groupId : null;
+}
+
+function extractNoteId(metadata: Record<string, unknown>) {
+  const knowledgeProcessing = extractKnowledgeProcessingMetadata(metadata);
+  const noteId = knowledgeProcessing.noteId;
+
+  return typeof noteId === "string" ? noteId : null;
+}
+
+function extractSyncedDestinationCount(metadata: Record<string, unknown>) {
+  const knowledgeProcessing = extractKnowledgeProcessingMetadata(metadata);
+  const syncedDestinationCount = knowledgeProcessing.syncedDestinationCount;
+
+  return typeof syncedDestinationCount === "number" ? syncedDestinationCount : 0;
 }

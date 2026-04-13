@@ -395,8 +395,10 @@ Returns:
 2. The fixed pipeline executes in order: `score -> dedupe -> summarize -> classify -> group`.
 3. The Item is updated with persisted enrichment, topic grouping, and debugging metadata for Inbox consumption.
 4. A Note may be created if the item is preservation-worthy.
-5. A knowledge sync job may push the Note to a knowledge sink.
-6. Topic group creation must converge on one stable group per `group_type + tag` even under concurrent processing.
+5. In V1, preservation-worthiness may be decided from persisted enrichment output such as importance, novelty, and duplicate status rather than a separate user-authored rule engine.
+6. In V1, initial knowledge sync may run immediately after Note creation so the first `processed Item -> Note -> knowledge sink` path is directly testable before a dedicated sync scheduler exists.
+7. Destination-specific sync results should be recorded on the Note metadata so the Knowledge surface can show what happened without collapsing knowledge sinks into generic delivery logs.
+8. Topic group creation must converge on one stable group per `group_type + tag` even under concurrent processing.
 
 ### Review Flow
 
