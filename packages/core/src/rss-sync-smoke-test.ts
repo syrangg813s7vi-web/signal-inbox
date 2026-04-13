@@ -22,6 +22,7 @@ interface CaptureEntryMetadata {
   fetchedCount?: number;
   normalization?: {
     phase?: string;
+    reason?: string;
   };
   persistedCount?: number;
   phase?: string;
@@ -313,6 +314,7 @@ async function runSmokeTest(
     assert.equal(captureEntryRows.length, 5);
     assert.equal(captureEntryRows[0]?.status, "failed");
     assert.equal(captureEntryRows[1]?.status, "normalized");
+    assert.equal(captureEntryRows[2]?.status, "normalized");
     assert.equal(
       ((captureEntryRows[0]?.metadata ?? {}) as CaptureEntryMetadata & { connectorType?: string })
         .connectorType,
@@ -327,6 +329,14 @@ async function runSmokeTest(
     assert.equal(normalizedCaptureMetadata.persistedCount, 1);
     assert.equal(normalizedCaptureMetadata.skippedCount, 1);
     assert.equal(normalizedCaptureMetadata.normalization?.phase, "completed");
+    assert.equal(
+      ((captureEntryRows[2]?.metadata ?? {}) as CaptureEntryMetadata).normalization?.phase,
+      "skipped",
+    );
+    assert.equal(
+      ((captureEntryRows[2]?.metadata ?? {}) as CaptureEntryMetadata).normalization?.reason,
+      "no_new_raw_assets",
+    );
     assert.equal(rawAssetRows.length, 5);
     assert.equal(itemRows.length, 5);
     assert.equal(duplicateUrlItem?.canonicalUrl, null);

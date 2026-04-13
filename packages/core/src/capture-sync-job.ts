@@ -88,7 +88,7 @@ export async function runRssSourceSyncJob(input: RunRssSourceSyncJobInput) {
       persisted_count: result.persistedCount,
       raw_asset_count: result.rawAssetIds.length,
       source_id: source.id,
-      status: "captured",
+      status: "normalized",
     });
 
     return {
