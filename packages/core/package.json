@@ -3,6 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "capture-sync:smoke": "tsx src/rss-sync-smoke-test.ts",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@signal-inbox/capture": "workspace:*",
+    "@signal-inbox/connectors": "workspace:*"
+  },
+  "devDependencies": {
+    "@signal-inbox/db": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "tsx": "^4.21.0"
+  },
   "exports": {
     ".": "./src/index.ts"
   }
