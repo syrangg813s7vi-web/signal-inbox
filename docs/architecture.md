@@ -88,6 +88,12 @@ Not responsible for:
 - note creation
 - digest generation
 
+AI usage rule:
+
+- normalization should remain primarily deterministic
+- model calls in this layer are optional and limited to narrow cleanup tasks such as fallback language detection or light extraction repair
+- this layer must not own ranking, summarization, preservation decisions, or review synthesis
+
 Main modules:
 
 - `extractor`
@@ -109,6 +115,41 @@ Main responsibilities:
 - AI enrichment
 - note creation
 - knowledge sink sync
+
+AI entry rule:
+
+- the first-class AI entrypoint for the product is the Knowledge Layer
+- model-backed reasoning should operate on normalized `Item` records, not directly on raw capture payloads
+- provider and model selection must be configurable from one explicit configuration boundary rather than hard-coded across business logic
+- the default sequence remains:
+  - `score`
+  - `dedupe`
+  - `summarize`
+  - `classify`
+  - `group`
+  - `preserve`
+
+AI output rule:
+
+- AI should produce structured enrichment output, not only free-form text
+- enrichment metadata should retain the provider, model, and prompt-version used for generation
+- the minimum structured output should support:
+  - summary
+  - key points
+  - classification
+  - tags
+  - importance score
+  - novelty score
+  - why-it-matters reasoning
+  - preservation recommendation
+  - optional note draft
+
+Layer boundary:
+
+- `Capture Layer` does not make AI decisions
+- `Normalization Layer` may use limited repair assistance, but does not own AI ranking or summary logic
+- `Knowledge Layer` owns model-backed judgment and note-preservation decisions
+- `Review Layer` may use AI to synthesize digests and resurfacing output from processed and preserved objects
 
 Primary concepts:
 
@@ -144,6 +185,11 @@ Main responsibilities:
 - review generation
 - reminder selection
 - topic review selection
+
+AI role:
+
+- review uses AI after the knowledge pipeline, not instead of it
+- the review layer should synthesize from processed `Item`, `Enrichment`, and `Note` data rather than re-parsing raw captured material
 
 Primary concepts:
 

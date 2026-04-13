@@ -175,6 +175,10 @@ Long-term value comes from re-surfacing and revisiting information, not only fro
 
 The first version should work well with very little setup.
 
+### Configurable Intelligence
+
+The system should support explicit model selection for AI-powered processing rather than hiding one fixed model inside business logic.
+
 ### Progressive Disclosure
 
 Advanced controls must be hidden from the main flow.

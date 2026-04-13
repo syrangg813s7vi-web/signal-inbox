@@ -230,6 +230,9 @@ Fields:
 - `tags`
 - `topic`
 - `classification`
+- `why_it_matters`
+- `preserve_recommendation`
+- `note_draft`
 - `ai_commentary`
 - `dedupe_key`
 - `metadata`
@@ -239,6 +242,39 @@ Fields:
 Constraints:
 
 - one current enrichment record per item in V1 is acceptable
+
+V1 enrichment shape:
+
+- `summary_short`
+  - short Inbox summary used for quick review
+- `summary_long`
+  - longer preservation-oriented summary when needed
+- `key_points`
+  - 3 to 5 core takeaways from the normalized Item
+- `classification`
+  - primary type or topic class for routing and display
+- `tags`
+  - secondary labels for filtering and review
+- `importance_score`
+  - normalized score for ranking importance
+- `novelty_score`
+  - normalized score for ranking freshness or distinctiveness
+- `why_it_matters`
+  - concise explanation of why the Item deserves attention
+- `preserve_recommendation`
+  - one of:
+    - `keep`
+    - `discard`
+    - `review`
+- `note_draft`
+  - optional draft body for later `Note` creation
+
+Usage rule:
+
+- the enrichment record is the structured AI output contract for downstream product surfaces
+- `Inbox` should consume summary, key points, classification, tags, scores, and why-it-matters reasoning
+- `Knowledge` should additionally consume preserve recommendation and note draft
+- `Review` should consume processed summaries, key points, classifications, and scores rather than raw source material
 
 ### item_groups
 
