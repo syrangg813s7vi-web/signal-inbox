@@ -129,6 +129,9 @@ async function runSmokeTest(
   assert.equal(firstResult.skippedCount, 0);
   assert.equal(firstResult.normalizedItemIds.length, 2);
 
+  let dbClient: ReturnType<typeof createSqlClient>;
+  let db: ReturnType<typeof createDbFromClient>;
+
   const repeatedNormalizationResult = await runNormalizeRawAssetJob({
     databaseUrl,
     rawAssetId: firstResult.rawAssetIds[0]!,
@@ -136,6 +139,64 @@ async function runSmokeTest(
 
   assert.equal(repeatedNormalizationResult.rawAssetId, firstResult.rawAssetIds[0]);
   assert.equal(repeatedNormalizationResult.itemId, firstResult.normalizedItemIds[0]);
+
+  dbClient = createSqlClient(databaseUrl);
+  db = createDbFromClient(dbClient);
+
+  try {
+    const [concurrentCaptureEntry] = await db
+      .insert(captureEntries)
+      .values({
+        capturedAt: new Date("2026-04-12T10:45:00.000Z"),
+        entryType: "source_sync",
+        metadata: {
+          connectorType: "rss",
+          phase: "completed",
+        },
+        sourceId: createdSource.id,
+        triggerRef: `smoke-concurrent-${randomUUID()}`,
+      })
+      .returning({ id: captureEntries.id });
+
+    const [concurrentRawAsset] = await db
+      .insert(rawAssets)
+      .values({
+        assetType: "article",
+        captureEntryId: concurrentCaptureEntry.id,
+        externalId: `concurrent-${randomUUID()}`,
+        publishedAt: new Date("2026-04-12T10:45:00.000Z"),
+        rawContent: "<p>Concurrent normalization body.</p>",
+        rawMetadata: {
+          connectorType: "rss",
+          feed: {
+            language: "en",
+            siteUrl: "https://example.com/feed",
+            title: "Signal Inbox Feed",
+          },
+          sourceUrl,
+        },
+        title: "Concurrent normalization article",
+        url: `https://example.com/articles/concurrent-${randomUUID()}`,
+      })
+      .returning({ id: rawAssets.id });
+
+    const concurrentResults = await Promise.all([
+      runNormalizeRawAssetJob({
+        databaseUrl,
+        rawAssetId: concurrentRawAsset.id,
+      }),
+      runNormalizeRawAssetJob({
+        databaseUrl,
+        rawAssetId: concurrentRawAsset.id,
+      }),
+    ]);
+
+    assert.equal(concurrentResults[0]?.rawAssetId, concurrentRawAsset.id);
+    assert.equal(concurrentResults[1]?.rawAssetId, concurrentRawAsset.id);
+    assert.equal(concurrentResults[0]?.itemId, concurrentResults[1]?.itemId);
+  } finally {
+    await dbClient.end();
+  }
 
   feedState.xml = buildRssFeed([
     {
@@ -166,8 +227,8 @@ async function runSmokeTest(
   assert.equal(duplicateWithinBatchRun.persistedCount, 1);
   assert.equal(duplicateWithinBatchRun.skippedCount, 1);
 
-  let dbClient = createSqlClient(databaseUrl);
-  let db = createDbFromClient(dbClient);
+  dbClient = createSqlClient(databaseUrl);
+  db = createDbFromClient(dbClient);
 
   try {
     const [syncStateAfterFirstRun] = await db
@@ -191,8 +252,8 @@ async function runSmokeTest(
       latestPublishedAt: "2026-04-12T10:30:00.000Z",
       latestUrls: ["https://example.com/articles/duplicate"],
     }));
-    assert.equal(rawAssetsAfterFirstRun.length, 3);
-    assert.equal(itemsAfterFirstRun.length, 3);
+    assert.equal(rawAssetsAfterFirstRun.length, 4);
+    assert.equal(itemsAfterFirstRun.length, 4);
     assert.equal(rawAssetsAfterFirstRun.every((rawAsset) => rawAsset.status === "normalized"), true);
     assert.equal(itemsAfterFirstRun.every((item) => item.status === "new"), true);
     assert.equal(firstNormalizedItem?.language, "en");
@@ -320,7 +381,7 @@ async function runSmokeTest(
     const finalSource = await getRssSource(createdSource.id, databaseUrl);
     const normalizedCaptureMetadata = (captureEntryRows[1]?.metadata ?? {}) as CaptureEntryMetadata;
 
-    assert.equal(captureEntryRows.length, 5);
+    assert.equal(captureEntryRows.length, 6);
     assert.equal(captureEntryRows[0]?.status, "failed");
     assert.equal(captureEntryRows[1]?.status, "normalized");
     assert.equal(captureEntryRows[2]?.status, "normalized");
@@ -346,8 +407,8 @@ async function runSmokeTest(
       ((captureEntryRows[2]?.metadata ?? {}) as CaptureEntryMetadata).normalization?.reason,
       "no_new_raw_assets",
     );
-    assert.equal(rawAssetRows.length, 5);
-    assert.equal(itemRows.length, 5);
+    assert.equal(rawAssetRows.length, 6);
+    assert.equal(itemRows.length, 6);
     assert.equal(duplicateUrlItem?.canonicalUrl, null);
     assert.equal(
       duplicateUrlItemMetadata.canonicalUrlConflict,
