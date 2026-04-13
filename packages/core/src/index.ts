@@ -14,3 +14,9 @@ export const ARCHITECTURE_LAYERS = [
 export type ArchitectureDomain = (typeof ARCHITECTURE_DOMAINS)[number];
 export type ArchitectureLayer = (typeof ARCHITECTURE_LAYERS)[number];
 export type ArchitectureName = ArchitectureDomain | ArchitectureLayer;
+
+export {
+  runRssSourceSyncJob,
+  SourceSyncJobError,
+  type RunRssSourceSyncJobInput,
+} from "./capture-sync-job";

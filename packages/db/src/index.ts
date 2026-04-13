@@ -7,6 +7,7 @@ export {
 } from "./client";
 export { runMigrations } from "./migrate";
 export { bootstrapSourceStorageSchema } from "./source-storage-bootstrap";
+export { startTemporaryPostgres, type TemporaryPostgresInstance } from "./testing";
 export {
   captureEntries,
   captureEntryStatusEnum,

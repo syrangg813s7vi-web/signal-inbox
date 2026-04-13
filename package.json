@@ -10,11 +10,12 @@
     "dev": "pnpm --filter @signal-inbox/web dev",
     "build": "pnpm --filter @signal-inbox/web build",
     "start": "pnpm --filter @signal-inbox/web start",
+    "capture-sync:smoke": "pnpm --filter @signal-inbox/core capture-sync:smoke",
     "db:generate": "pnpm --filter @signal-inbox/db db:generate",
     "db:migrate": "pnpm --filter @signal-inbox/db db:migrate",
     "db:smoke": "pnpm --filter @signal-inbox/db db:smoke",
     "capture:smoke": "pnpm --filter @signal-inbox/capture capture:smoke",
-    "typecheck": "pnpm --filter @signal-inbox/web typecheck && pnpm --filter @signal-inbox/db typecheck && pnpm --filter @signal-inbox/capture typecheck",
+    "typecheck": "pnpm --filter @signal-inbox/web typecheck && pnpm --filter @signal-inbox/db typecheck && pnpm --filter @signal-inbox/capture typecheck && pnpm --filter @signal-inbox/connectors typecheck && pnpm --filter @signal-inbox/core typecheck",
     "check": "pnpm typecheck && pnpm build"
   },
   "devDependencies": {

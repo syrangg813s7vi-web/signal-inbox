@@ -132,6 +132,14 @@ export async function reactivateSource(
   return updateSourceStatus(sourceId, "active", databaseUrl);
 }
 
+export async function getRssSource(sourceId: string, databaseUrl?: string): Promise<RssSourceRecord | null> {
+  if (!sourceId.trim()) {
+    throw new SourceValidationError("Source id is required.");
+  }
+
+  return getRssSourceById(sourceId, databaseUrl);
+}
+
 export async function deleteSource(sourceId: string, databaseUrl?: string): Promise<void> {
   if (!sourceId.trim()) {
     throw new SourceValidationError("Source id is required.");
