@@ -4,10 +4,10 @@ import { getMutationErrorMessage, syncSourceById } from "@/server/source-mutatio
 
 export async function POST(
   request: Request,
-  context: { params: Promise<unknown> },
+  context: { params: Promise<{ sourceId: string }> },
 ) {
   try {
-    const { sourceId } = (await context.params) as { sourceId: string };
+    const { sourceId } = await context.params;
     const result = await syncSourceById(sourceId);
 
     return redirectToSources(request, {
