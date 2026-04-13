@@ -46,7 +46,7 @@ interface InboxRow {
   topicGroupTitle: string | null;
 }
 
-type InboxUnavailableKind = "configuration" | "connection" | "schema" | "unknown";
+type InboxUnavailableKind = "bootstrap" | "configuration" | "connection" | "schema";
 
 class InboxStorageBootstrapError extends Error {
   constructor(cause: unknown) {
@@ -89,7 +89,7 @@ export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
       return {
         isAvailable: false,
         items: [],
-        unavailableReason: getUnavailableReason(unavailableKind),
+        unavailableReason: await getUnavailableReason(unavailableKind, error),
       };
     }
 
@@ -191,7 +191,7 @@ function extractDuplicateOfItemId(metadata: Record<string, unknown>) {
 function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {
   for (const candidate of walkErrorChain(error)) {
     if (candidate.code === "42501") {
-      return "schema";
+      return "bootstrap";
     }
 
     if (candidate.code === "ERR_INVALID_URL") {
@@ -221,7 +221,7 @@ function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {
     const message = candidate.message.toLowerCase();
 
     if (message.includes("inbox storage bootstrap failed")) {
-      return "schema";
+      return "bootstrap";
     }
 
     if (message.includes("database_url must be set")) {
@@ -259,16 +259,28 @@ function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {
       message.includes("tls") ||
       message.includes("server closed the connection unexpectedly") ||
       message.includes("password authentication failed") ||
-      message.includes("no pg_hba.conf entry")
+      message.includes("no pg_hba.conf entry") ||
+      message.includes("permission denied") ||
+      message.includes("must be owner of")
     ) {
-      return "connection";
+      return message.includes("permission denied") || message.includes("must be owner of")
+        ? "bootstrap"
+        : "connection";
     }
   }
 
   return null;
 }
 
-function getUnavailableReason(kind: InboxUnavailableKind) {
+async function getUnavailableReason(kind: InboxUnavailableKind, error?: unknown) {
+  if (kind === "bootstrap") {
+    const detail = await getBootstrapFailureDetail(error);
+
+    return detail
+      ? `Inbox storage is configured, but automatic preview migration bootstrap failed. ${detail}`
+      : "Inbox storage is configured, but automatic preview migration bootstrap failed. Run the database migrations for this environment or grant the preview database user permission to create the required schema objects.";
+  }
+
   if (kind === "configuration") {
     return "Inbox data is unavailable because the database is not configured for this environment.";
   }
@@ -332,12 +344,73 @@ async function loadPreviewInboxProbeResult(): Promise<PreviewInboxProbeResult | 
   }
 }
 
+async function getBootstrapFailureDetail(error: unknown): Promise<string | null> {
+  for (const candidate of walkErrorChain(error)) {
+    if (candidate.code === "42501") {
+      return appendPreviewProbeDetail(
+        appendBootstrapHints(
+          "The preview database role does not have enough DDL permission to create the required schema objects. Grant the preview role create privileges or run the migrations ahead of time.",
+          candidate,
+        ),
+        await loadPreviewInboxProbeResult(),
+      );
+    }
+
+    if (!candidate.message) {
+      continue;
+    }
+
+    const message = candidate.message.toLowerCase();
+
+    if (
+      message.includes("inbox storage bootstrap failed") ||
+      message.includes("permission denied") ||
+      message.includes("must be owner of")
+    ) {
+      return appendPreviewProbeDetail(
+        appendBootstrapHints(candidate.message, candidate),
+        await loadPreviewInboxProbeResult(),
+      );
+    }
+  }
+
+  return null;
+}
+
 function formatPrivilege(value: boolean): string {
   return value ? "yes" : "no";
 }
 
 function formatPresence(value: boolean): string {
   return value ? "present" : "missing";
+}
+
+function appendBootstrapHints(
+  message: string,
+  candidate: {
+    detail?: string;
+    hint?: string;
+  },
+) {
+  const parts = [message];
+
+  if (candidate.detail) {
+    parts.push(`Detail: ${candidate.detail}`);
+  }
+
+  if (candidate.hint) {
+    parts.push(`Hint: ${candidate.hint}`);
+  }
+
+  return parts.join(" ");
+}
+
+function appendPreviewProbeDetail(message: string, probe: PreviewInboxProbeResult | null) {
+  if (!probe) {
+    return message;
+  }
+
+  return `${message} Preview probe: public CREATE=${formatPrivilege(probe.publicCreate)}, public USAGE=${formatPrivilege(probe.publicUsage)}, capture_entries=${formatPresence(probe.captureEntriesExists)}, raw_assets=${formatPresence(probe.rawAssetsExists)}, items=${formatPresence(probe.itemsExists)}, enrichments=${formatPresence(probe.enrichmentsExists)}, item_groups=${formatPresence(probe.itemGroupsExists)}, item_group_members=${formatPresence(probe.itemGroupMembersExists)}.`;
 }
 
 async function getUnexpectedUnavailableReason(error: unknown) {
@@ -358,7 +431,12 @@ async function getUnexpectedUnavailableReason(error: unknown) {
   return "Inbox data is unavailable because an unexpected server error occurred.";
 }
 
-function* walkErrorChain(error: unknown): Generator<{ code?: string; message?: string }> {
+function* walkErrorChain(error: unknown): Generator<{
+  code?: string;
+  detail?: string;
+  hint?: string;
+  message?: string;
+}> {
   const queue: unknown[] = [error];
   const seen = new Set<unknown>();
 
@@ -375,14 +453,18 @@ function* walkErrorChain(error: unknown): Generator<{ code?: string; message?: s
       const candidate = current as {
         cause?: unknown;
         code?: string;
+        detail?: string;
         error?: unknown;
         errors?: unknown[];
+        hint?: string;
         message?: string;
         originalError?: unknown;
       };
 
       yield {
         code: candidate.code,
+        detail: candidate.detail,
+        hint: candidate.hint,
         message: candidate.message,
       };
 
