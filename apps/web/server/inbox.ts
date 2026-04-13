@@ -7,6 +7,7 @@ import {
   itemGroupMembers,
   itemGroups,
   items,
+  runMigrations,
 } from "@signal-inbox/db";
 
 export interface InboxItemViewModel {
@@ -52,46 +53,17 @@ const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
 });
 
+let inboxStorageBootstrapPromise: Promise<void> | null = null;
+
 export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
   try {
-    const client = createSqlClient();
-    const db = createDbFromClient(client);
+    const rows = await withInboxStorageReady(() => loadInboxRows());
 
-    try {
-      const rows = await db
-        .select({
-          canonicalUrl: items.canonicalUrl,
-          classification: enrichments.classification,
-          id: items.id,
-          importanceScore: enrichments.importanceScore,
-          metadata: items.metadata,
-          noveltyScore: enrichments.noveltyScore,
-          publishedAt: items.publishedAt,
-          summaryShort: enrichments.summaryShort,
-          tags: enrichments.tags,
-          title: items.title,
-          topic: enrichments.topic,
-          topicGroupTitle: itemGroups.title,
-        })
-        .from(items)
-        .innerJoin(enrichments, eq(enrichments.itemId, items.id))
-        .leftJoin(itemGroupMembers, eq(itemGroupMembers.itemId, items.id))
-        .leftJoin(
-          itemGroups,
-          and(eq(itemGroups.id, itemGroupMembers.groupId), eq(itemGroups.groupType, "topic")),
-        )
-        .where(and(eq(items.status, "processed"), isNotNull(enrichments.itemId)))
-        .orderBy(desc(enrichments.importanceScore), desc(items.publishedAt), desc(items.createdAt))
-        .limit(24);
-
-      return {
-        isAvailable: true,
-        items: rows.map(mapInboxRow),
-        unavailableReason: null,
-      };
-    } finally {
-      await client.end();
-    }
+    return {
+      isAvailable: true,
+      items: rows.map(mapInboxRow),
+      unavailableReason: null,
+    };
   } catch (error) {
     const unavailableKind = getInboxUnavailableKind(error);
 
@@ -101,6 +73,54 @@ export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
         items: [],
         unavailableReason: getUnavailableReason(unavailableKind),
       };
+    }
+
+    throw error;
+  }
+}
+
+async function loadInboxRows() {
+  const client = createSqlClient();
+  const db = createDbFromClient(client);
+
+  try {
+    return await db
+      .select({
+        canonicalUrl: items.canonicalUrl,
+        classification: enrichments.classification,
+        id: items.id,
+        importanceScore: enrichments.importanceScore,
+        metadata: items.metadata,
+        noveltyScore: enrichments.noveltyScore,
+        publishedAt: items.publishedAt,
+        summaryShort: enrichments.summaryShort,
+        tags: enrichments.tags,
+        title: items.title,
+        topic: enrichments.topic,
+        topicGroupTitle: itemGroups.title,
+      })
+      .from(items)
+      .innerJoin(enrichments, eq(enrichments.itemId, items.id))
+      .leftJoin(itemGroupMembers, eq(itemGroupMembers.itemId, items.id))
+      .leftJoin(
+        itemGroups,
+        and(eq(itemGroups.id, itemGroupMembers.groupId), eq(itemGroups.groupType, "topic")),
+      )
+      .where(and(eq(items.status, "processed"), isNotNull(enrichments.itemId)))
+      .orderBy(desc(enrichments.importanceScore), desc(items.publishedAt), desc(items.createdAt))
+      .limit(24);
+  } finally {
+    await client.end();
+  }
+}
+
+async function withInboxStorageReady<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (getInboxUnavailableKind(error) === "schema" && shouldAttemptPreviewSchemaBootstrap()) {
+      await ensureInboxStorageSchema();
+      return operation();
     }
 
     throw error;
@@ -191,6 +211,20 @@ function getUnavailableReason(kind: InboxUnavailableKind) {
   }
 
   return "Inbox data is unavailable in this environment.";
+}
+
+function shouldAttemptPreviewSchemaBootstrap() {
+  return process.env.VERCEL_ENV === "preview";
+}
+
+async function ensureInboxStorageSchema() {
+  if (!inboxStorageBootstrapPromise) {
+    inboxStorageBootstrapPromise = runMigrations().finally(() => {
+      inboxStorageBootstrapPromise = null;
+    });
+  }
+
+  await inboxStorageBootstrapPromise;
 }
 
 function walkErrorChain(error: unknown) {
