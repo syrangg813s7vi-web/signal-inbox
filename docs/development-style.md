@@ -13,6 +13,7 @@ The goal is consistency, readability, and low decision overhead for both human c
 - prefer small focused changes over broad rewrites
 - prefer stable naming over introducing new synonyms
 - keep the code aligned with the product principle of low friction
+- keep a PR coherent rather than stacking avoidable repair commits for regressions introduced earlier in the same PR
 
 ## Core Naming Rules
 
@@ -569,6 +570,9 @@ If validation cannot be completed, note that clearly in the final summary or fol
 - one commit should represent one coherent change
 - do not mix unrelated work into the same commit
 - if a change updates docs because behavior changed, prefer including doc updates in the same commit
+- if a commit in the current PR introduces a regression, repair it before treating the PR as review-ready again
+- do not let a PR turn into a chain where each commit only repairs the immediately previous commit's avoidable breakage
+- when review finds a regression introduced by the current PR, the expected outcome is a coherent repaired PR state, not a growing stack of self-inflicted follow-up fixes
 
 Examples:
 

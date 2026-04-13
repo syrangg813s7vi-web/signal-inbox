@@ -192,6 +192,10 @@ Use a single persistent Linear comment as the source of truth for execution.
    - the PR URL if available
    - what Linear state the issue should move to next
    - any blockers or follow-up risks
+25. Keep each PR coherent at the commit level.
+   - If a commit in the PR introduces a defect or regression, repair that regression in the same PR before treating the branch as review-ready again.
+   - Do not let the PR degrade into a chain where each new commit exists only to repair the immediately previous commit's avoidable breakage.
+   - Before moving back to `Human Review`, ensure the PR reads as a coherent implementation thread rather than a rolling series of self-inflicted regressions.
 
 ## PR Feedback Sweep Protocol
 
@@ -213,6 +217,14 @@ When an issue branch already has a PR, run this protocol before treating the wor
    - If the comment was fixed, reply with a short note describing the fix and the validation evidence.
    - If the comment is being rejected, reply with explicit, justified pushback.
 8. If actionable PR comments remain, keep the issue in `In Progress` or `Rework` and continue the implementation or validation loop.
+9. Treat PR feedback changes as execution triggers, not just passive review state.
+   - If the latest actionable PR comment id changes, start a new PR feedback sweep before any other status conclusion.
+   - If the latest actionable PR comment timestamp changes, start a new PR feedback sweep before any other status conclusion.
+   - If the actionable PR comment count changes, start a new PR feedback sweep before any other status conclusion.
+   - If the issue is re-picked in `In Progress` or `Rework` after any of those PR feedback deltas, do not only restamp the Linear state; continue into an active implementation or validation loop.
+10. Do not treat issue pickup alone as sufficient progress when a newer actionable PR comment exists than the last resolved feedback sweep evidence.
+11. If a PR branch is re-opened for work and there is newer actionable PR feedback than the latest fix-evidence reply, the run must begin with comment-driven rework.
+12. When PR feedback identifies a regression introduced inside the current PR, fix that regression as part of the same coherent implementation thread instead of allowing avoidable "repair the previous commit" follow-up commits to accumulate.
 
 ## PR Comment Preservation Rules
 
