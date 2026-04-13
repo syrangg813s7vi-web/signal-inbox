@@ -12,9 +12,9 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
   return (
     <ShellFrame
       eyebrow="Sources"
-      title="Register recurring RSS sources without leaving the Capture layer."
-      description="Add a feed, keep it visible, and pause or reactivate it later without mixing sync execution into the same workflow."
-      callout="Source status combines the configured source state with the initialized sync-state baseline so later sync tracking has a clear place to land."
+      title="Register recurring RSS sources and trigger the first capture path."
+      description="Add a feed, keep it visible, and run a minimal sync when you need to validate the capture-to-inbox slice."
+      callout="Source status combines the configured source state with the initialized sync-state baseline, and active sources expose a manual sync path for first-slice review."
     >
       <section className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
         <article className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--panel)] p-6">
@@ -91,7 +91,7 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                 Registered Sources
               </p>
               <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                Status is visible now even before sync jobs are implemented.
+                Status and a minimal manual sync action are available for first-slice validation.
               </p>
             </div>
             <span className="rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
@@ -142,6 +142,18 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                     </div>
 
                     <div className="flex items-center gap-3">
+                      {source.status === "active" ? (
+                        <form action={`/sources/${source.id}/sync`} method="post">
+                          <button
+                            disabled={!viewModel.isAvailable}
+                            type="submit"
+                            className="rounded-full bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--panel-strong)] transition enabled:hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Sync now
+                          </button>
+                        </form>
+                      ) : null}
+
                       {source.status === "paused" ? (
                         <form action={`/sources/${source.id}/reactivate`} method="post">
                           <button

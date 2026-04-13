@@ -53,6 +53,10 @@ Run the RSS source sync smoke test with:
 
 `pnpm capture-sync:smoke`
 
+Run the Inbox query-path smoke test with:
+
+`pnpm inbox:smoke`
+
 The smoke test runs the real `@signal-inbox/db` migration entrypoint and then inserts the minimal V1 chain:
 
 `Source -> CaptureEntry -> RawAsset -> Item -> Enrichment -> ItemGroup -> ItemGroupMember`

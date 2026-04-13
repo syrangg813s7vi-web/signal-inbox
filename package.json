@@ -11,6 +11,7 @@
     "build": "pnpm --filter @signal-inbox/web build",
     "start": "pnpm --filter @signal-inbox/web start",
     "capture-sync:smoke": "pnpm --filter @signal-inbox/core capture-sync:smoke",
+    "inbox:smoke": "pnpm --filter @signal-inbox/web inbox:smoke",
     "db:generate": "pnpm --filter @signal-inbox/db db:generate",
     "db:migrate": "pnpm --filter @signal-inbox/db db:migrate",
     "db:smoke": "pnpm --filter @signal-inbox/db db:smoke",
