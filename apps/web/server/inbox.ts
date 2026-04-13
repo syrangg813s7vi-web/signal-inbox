@@ -111,7 +111,12 @@ async function loadInboxRows() {
   const topicGroupTitles = db
     .select({
       itemId: itemGroupMembers.itemId,
-      topicGroupTitle: sql<string | null>`min(${itemGroups.title})`.as("topicGroupTitle"),
+      topicGroupTitle: sql<string | null>`
+        case
+          when count(*) = 1 then min(${itemGroups.title})
+          else null
+        end
+      `.as("topicGroupTitle"),
     })
     .from(itemGroupMembers)
     .innerJoin(
