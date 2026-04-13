@@ -87,6 +87,9 @@ importers:
       '@signal-inbox/connectors':
         specifier: workspace:*
         version: link:../connectors
+      '@signal-inbox/knowledge':
+        specifier: workspace:*
+        version: link:../knowledge
       '@signal-inbox/normalization':
         specifier: workspace:*
         version: link:../normalization
@@ -119,7 +122,14 @@ importers:
 
   packages/delivery: {}
 
-  packages/knowledge: {}
+  packages/knowledge:
+    dependencies:
+      '@signal-inbox/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
 
   packages/normalization:
     dependencies:

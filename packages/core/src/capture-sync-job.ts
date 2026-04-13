@@ -71,6 +71,7 @@ export async function runRssSourceSyncJob(input: RunRssSourceSyncJobInput) {
     );
 
     const normalizedItemIds: string[] = [];
+    const processedItemIds: string[] = [];
 
     for (const rawAssetId of result.rawAssetIds) {
       const normalizedResult = await runNormalizeRawAssetJob({
@@ -79,6 +80,8 @@ export async function runRssSourceSyncJob(input: RunRssSourceSyncJobInput) {
       });
 
       normalizedItemIds.push(normalizedResult.itemId);
+
+      processedItemIds.push(normalizedResult.processedItemId);
     }
 
     console.info("source sync succeeded", {
@@ -86,14 +89,16 @@ export async function runRssSourceSyncJob(input: RunRssSourceSyncJobInput) {
       job_type: "capture-sync",
       normalized_item_count: normalizedItemIds.length,
       persisted_count: result.persistedCount,
+      processed_item_count: processedItemIds.length,
       raw_asset_count: result.rawAssetIds.length,
       source_id: source.id,
-      status: "normalized",
+      status: "processed",
     });
 
     return {
       ...result,
       normalizedItemIds,
+      processedItemIds,
     };
   } catch (error) {
     const failure = await failSourceSyncExecution(

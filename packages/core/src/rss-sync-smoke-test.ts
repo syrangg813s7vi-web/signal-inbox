@@ -9,6 +9,9 @@ import {
   captureEntries,
   createDbFromClient,
   createSqlClient,
+  enrichments,
+  itemGroupMembers,
+  itemGroups,
   items,
   rawAssets,
   runMigrations,
@@ -33,10 +36,33 @@ interface CaptureEntryMetadata {
 interface ItemMetadata {
   canonicalUrlConflict?: string;
   connectorType?: string;
+  knowledgeProcessing?: {
+    duplicateOfItemId?: string | null;
+    groupId?: string | null;
+    lastCompletedStep?: string | null;
+    lastError?: string | null;
+    order?: string[];
+    pipelineVersion?: string;
+    status?: string;
+  };
   rss?: {
     feedLanguage?: string;
     feedTitle?: string;
     feedUrl?: string;
+  };
+}
+
+interface EnrichmentMetadata {
+  duplicateOfItemId?: string | null;
+  lastCompletedStep?: string | null;
+  order?: string[];
+  pipelineVersion?: string;
+  status?: string;
+  steps?: {
+    dedupe?: {
+      dedupeKey?: string;
+      duplicateOfItemId?: string | null;
+    };
   };
 }
 
@@ -128,6 +154,7 @@ async function runSmokeTest(
   assert.equal(firstResult.persistedCount, 2);
   assert.equal(firstResult.skippedCount, 0);
   assert.equal(firstResult.normalizedItemIds.length, 2);
+  assert.equal(firstResult.processedItemIds.length, 2);
 
   let dbClient: ReturnType<typeof createSqlClient>;
   let db: ReturnType<typeof createDbFromClient>;
@@ -226,6 +253,7 @@ async function runSmokeTest(
   assert.equal(duplicateWithinBatchRun.fetchedCount, 2);
   assert.equal(duplicateWithinBatchRun.persistedCount, 1);
   assert.equal(duplicateWithinBatchRun.skippedCount, 1);
+  assert.equal(duplicateWithinBatchRun.processedItemIds.length, 1);
 
   dbClient = createSqlClient(databaseUrl);
   db = createDbFromClient(dbClient);
@@ -235,12 +263,19 @@ async function runSmokeTest(
       .select()
       .from(sourceSyncState)
       .where(eq(sourceSyncState.sourceId, createdSource.id));
+    const enrichmentRowsAfterFirstRun = await db.select().from(enrichments);
+    const itemGroupRowsAfterFirstRun = await db.select().from(itemGroups);
+    const itemGroupMemberRowsAfterFirstRun = await db.select().from(itemGroupMembers);
     const rawAssetsAfterFirstRun = await db.select().from(rawAssets);
     const itemsAfterFirstRun = await db.select().from(items);
     const firstNormalizedItem = itemsAfterFirstRun.find(
       (item) => item.canonicalUrl === "https://example.com/articles/1",
     );
     const firstNormalizedItemMetadata = (firstNormalizedItem?.metadata ?? {}) as ItemMetadata;
+    const firstEnrichment = enrichmentRowsAfterFirstRun.find(
+      (enrichment) => enrichment.itemId === firstNormalizedItem?.id,
+    );
+    const firstEnrichmentMetadata = (firstEnrichment?.metadata ?? {}) as EnrichmentMetadata;
 
     assert.ok(syncStateAfterFirstRun);
     assert.ok(syncStateAfterFirstRun.lastSyncedAt);
@@ -254,17 +289,38 @@ async function runSmokeTest(
     }));
     assert.equal(rawAssetsAfterFirstRun.length, 4);
     assert.equal(itemsAfterFirstRun.length, 4);
+    assert.equal(enrichmentRowsAfterFirstRun.length, 4);
+    assert.equal(itemGroupRowsAfterFirstRun.length, 1);
+    assert.equal(itemGroupMemberRowsAfterFirstRun.length, 4);
     assert.equal(rawAssetsAfterFirstRun.every((rawAsset) => rawAsset.status === "normalized"), true);
-    assert.equal(itemsAfterFirstRun.every((item) => item.status === "new"), true);
+    assert.equal(itemsAfterFirstRun.every((item) => item.status === "processed"), true);
     assert.equal(firstNormalizedItem?.language, "en");
     assert.equal(
       firstNormalizedItem?.contentText,
       "First article description & details.\n\nSecond paragraph.",
     );
     assert.equal(firstNormalizedItemMetadata.connectorType, "rss");
+    assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.status, "processed");
+    assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.lastCompletedStep, "group");
+    assert.deepEqual(firstNormalizedItemMetadata.knowledgeProcessing?.order, [
+      "score",
+      "dedupe",
+      "summarize",
+      "classify",
+      "group",
+    ]);
     assert.equal(firstNormalizedItemMetadata.rss?.feedLanguage, "en");
     assert.equal(firstNormalizedItemMetadata.rss?.feedTitle, "Signal Inbox Feed");
     assert.equal(firstNormalizedItemMetadata.rss?.feedUrl, "https://example.com/feed");
+    assert.equal(firstEnrichment?.classification, "topic-tracked");
+    assert.equal(firstEnrichment?.topic, "AI");
+    assert.equal(firstEnrichment?.summaryShort, "First article: First article description & details.");
+    assert.equal(typeof firstEnrichment?.importanceScore, "number");
+    assert.equal(typeof firstEnrichment?.noveltyScore, "number");
+    assert.equal(firstEnrichmentMetadata.status, "processed");
+    assert.equal(firstEnrichmentMetadata.pipelineVersion, "v1");
+    assert.equal(firstEnrichmentMetadata.lastCompletedStep, "group");
+    assert.equal(firstEnrichmentMetadata.steps?.dedupe?.dedupeKey, "url:https://example.com/articles/1");
     assert.equal(syncStateAfterFirstRun.sourceId, createdSource.id);
   } finally {
     await dbClient.end();
@@ -282,6 +338,7 @@ async function runSmokeTest(
   assert.equal(duplicateRun.persistedCount, 0);
   assert.equal(duplicateRun.skippedCount, 2);
   assert.equal(duplicateRun.normalizedItemIds.length, 0);
+  assert.equal(duplicateRun.processedItemIds.length, 0);
 
   feedState.xml = buildRssFeed([
     {
@@ -312,6 +369,7 @@ async function runSmokeTest(
   assert.equal(incrementalRun.persistedCount, 1);
   assert.equal(incrementalRun.skippedCount, 1);
   assert.equal(incrementalRun.normalizedItemIds.length, 1);
+  assert.equal(incrementalRun.processedItemIds.length, 1);
 
   const duplicateUrlSource = await createRssSource(
     {
@@ -344,6 +402,7 @@ async function runSmokeTest(
   assert.equal(duplicateUrlRun.persistedCount, 1);
   assert.equal(duplicateUrlRun.skippedCount, 0);
   assert.equal(duplicateUrlRun.normalizedItemIds.length, 1);
+  assert.equal(duplicateUrlRun.processedItemIds.length, 1);
 
   feedState.mode = "failure";
 
@@ -371,9 +430,14 @@ async function runSmokeTest(
       .where(eq(captureEntries.sourceId, createdSource.id))
       .orderBy(desc(captureEntries.createdAt));
     const rawAssetRows = await db.select().from(rawAssets);
+    const enrichmentRows = await db.select().from(enrichments);
+    const itemGroupRows = await db.select().from(itemGroups);
+    const itemGroupMemberRows = await db.select().from(itemGroupMembers);
     const itemRows = await db.select().from(items);
     const duplicateUrlItem = itemRows.find((item) => item.id === duplicateUrlRun.normalizedItemIds[0]);
     const duplicateUrlItemMetadata = (duplicateUrlItem?.metadata ?? {}) as ItemMetadata;
+    const duplicateUrlEnrichment = enrichmentRows.find((enrichment) => enrichment.itemId === duplicateUrlItem?.id);
+    const duplicateUrlEnrichmentMetadata = (duplicateUrlEnrichment?.metadata ?? {}) as EnrichmentMetadata;
     const [finalSyncState] = await db
       .select()
       .from(sourceSyncState)
@@ -409,10 +473,28 @@ async function runSmokeTest(
     );
     assert.equal(rawAssetRows.length, 6);
     assert.equal(itemRows.length, 6);
+    assert.equal(enrichmentRows.length, 6);
+    assert.equal(itemGroupRows.length, 2);
+    assert.equal(itemGroupMemberRows.length, 6);
     assert.equal(duplicateUrlItem?.canonicalUrl, null);
+    assert.equal(duplicateUrlItem?.status, "processed");
     assert.equal(
       duplicateUrlItemMetadata.canonicalUrlConflict,
       "https://example.com/articles/1",
+    );
+    assert.equal(duplicateUrlItemMetadata.knowledgeProcessing?.status, "processed");
+    assert.equal(
+      duplicateUrlItemMetadata.knowledgeProcessing?.duplicateOfItemId,
+      firstResult.normalizedItemIds[0],
+    );
+    assert.equal(duplicateUrlEnrichment?.noveltyScore, 0);
+    assert.equal(
+      duplicateUrlEnrichmentMetadata.duplicateOfItemId,
+      firstResult.normalizedItemIds[0],
+    );
+    assert.equal(
+      duplicateUrlEnrichmentMetadata.steps?.dedupe?.duplicateOfItemId,
+      firstResult.normalizedItemIds[0],
     );
     assert.ok(finalSyncState?.lastErrorAt);
     assert.match(finalSyncState?.lastErrorMessage ?? "", /status 500/);

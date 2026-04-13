@@ -6,6 +6,8 @@ import {
   RawAssetNotFoundError,
 } from "@signal-inbox/normalization";
 
+import { runProcessItemJob } from "./process-item-job";
+
 export interface RunNormalizeRawAssetJobInput {
   databaseUrl?: string;
   rawAssetId: string;
@@ -36,16 +38,26 @@ export async function runNormalizeRawAssetJob(input: RunNormalizeRawAssetJobInpu
       },
       input.databaseUrl,
     );
+    const processedResult = await runProcessItemJob(
+      {
+        databaseUrl: input.databaseUrl,
+        itemId: result.itemId,
+      },
+    );
 
     console.info("normalization succeeded", {
       capture_entry_id: result.captureEntryId,
       item_id: result.itemId,
       job_type: "normalize-item",
+      processed_item_id: processedResult.itemId,
       raw_asset_id: result.rawAssetId,
-      status: "normalized",
+      status: "processed",
     });
 
-    return result;
+    return {
+      ...result,
+      processedItemId: processedResult.itemId,
+    };
   } catch (error) {
     const causeMessage =
       error instanceof Error && error.message ? error.message : "Normalization failed.";

@@ -15,7 +15,7 @@
     "db:migrate": "pnpm --filter @signal-inbox/db db:migrate",
     "db:smoke": "pnpm --filter @signal-inbox/db db:smoke",
     "capture:smoke": "pnpm --filter @signal-inbox/capture capture:smoke",
-    "typecheck": "pnpm --filter @signal-inbox/web typecheck && pnpm --filter @signal-inbox/db typecheck && pnpm --filter @signal-inbox/capture typecheck && pnpm --filter @signal-inbox/connectors typecheck && pnpm --filter @signal-inbox/normalization typecheck && pnpm --filter @signal-inbox/core typecheck",
+    "typecheck": "pnpm --filter @signal-inbox/web typecheck && pnpm --filter @signal-inbox/db typecheck && pnpm --filter @signal-inbox/capture typecheck && pnpm --filter @signal-inbox/connectors typecheck && pnpm --filter @signal-inbox/normalization typecheck && pnpm --filter @signal-inbox/knowledge typecheck && pnpm --filter @signal-inbox/core typecheck",
     "check": "pnpm typecheck && pnpm build"
   },
   "devDependencies": {

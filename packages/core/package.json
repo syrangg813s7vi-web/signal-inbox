@@ -10,6 +10,7 @@
   "dependencies": {
     "@signal-inbox/capture": "workspace:*",
     "@signal-inbox/connectors": "workspace:*",
+    "@signal-inbox/knowledge": "workspace:*",
     "@signal-inbox/normalization": "workspace:*"
   },
   "devDependencies": {

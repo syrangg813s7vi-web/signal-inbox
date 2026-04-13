@@ -269,6 +269,9 @@ The first slice is successful if:
 - duplicate-only sync runs now finalize their `CaptureEntry` as `normalized` with a skipped-normalization marker instead of remaining in `captured`
 - normalization now retries after both canonical URL and same-asset unique-key races so concurrent workers can still converge on one stable `Item`
 - smoke coverage now includes idempotent re-normalization and parallel normalization of the same fresh `RawAsset`
+- the first Knowledge-layer `process-item` job now runs immediately after normalization for new Items
+- the V1 knowledge pipeline persists `Enrichment`, `ItemGroup`, and `ItemGroupMember` records using the fixed order `score -> dedupe -> summarize -> classify -> group`
+- processed Items now record debugging metadata for processing success and failure, and duplicate Items retain enough enrichment for Inbox consumption
 
 ### 2026-04-10
 

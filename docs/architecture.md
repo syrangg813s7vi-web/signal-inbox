@@ -386,13 +386,13 @@ Returns:
 2. Extraction and metadata cleanup run.
 3. The result is stored as one `Item`.
 4. The `RawAsset` and `CaptureEntry` statuses are advanced for the first slice.
-5. A later issue will enqueue the knowledge processing job.
+5. V1 immediately follows normalization by running the fixed knowledge processing job for each new `Item`.
 
 ### Knowledge Flow
 
 1. A processing job loads one `Item`.
-2. The fixed pipeline executes in order.
-3. The Item is updated with scores, summary, tags, topic grouping, and enrichment.
+2. The fixed pipeline executes in order: `score -> dedupe -> summarize -> classify -> group`.
+3. The Item is updated with persisted enrichment, topic grouping, and debugging metadata for Inbox consumption.
 4. A Note may be created if the item is preservation-worthy.
 5. A knowledge sync job may push the Note to a knowledge sink.
 
