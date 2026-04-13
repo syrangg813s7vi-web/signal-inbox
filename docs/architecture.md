@@ -133,6 +133,7 @@ AI output rule:
 
 - AI should produce structured enrichment output, not only free-form text
 - enrichment metadata should retain the provider, model, and prompt-version used for generation
+- enrichment persistence should distinguish the current record used by product surfaces from older successful reruns or history
 - the minimum structured output should support:
   - summary
   - key points
@@ -150,6 +151,12 @@ Layer boundary:
 - `Normalization Layer` may use limited repair assistance, but does not own AI ranking or summary logic
 - `Knowledge Layer` owns model-backed judgment and note-preservation decisions
 - `Review Layer` may use AI to synthesize digests and resurfacing output from processed and preserved objects
+
+Knowledge enrichment runtime rule:
+
+- model-backed enrichment runs through the job system rather than inline in request-response UI paths
+- malformed or incomplete model output must fail the enrichment attempt instead of being silently coerced into persistence
+- failed reruns must not replace the last known good current enrichment
 
 Primary concepts:
 

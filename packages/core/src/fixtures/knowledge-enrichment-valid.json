@@ -1,0 +1,25 @@
+{
+  "summary": {
+    "short": "OpenAI agent systems research highlights a benchmark for long-form evaluation.",
+    "long": "The write-up explains a practical benchmark, implementation notes, and open production questions for agent systems."
+  },
+  "key_points": [
+    "The article presents a benchmark for evaluating long-form agent performance.",
+    "It includes implementation notes that make the benchmark easier to reproduce.",
+    "It raises concrete follow-up questions for production readiness."
+  ],
+  "classification": {
+    "label": "research",
+    "topic": "AI"
+  },
+  "tags": [
+    "research",
+    "agents",
+    "evaluation"
+  ],
+  "importance_score": 0.91,
+  "novelty_score": 0.74,
+  "why_it_matters": "It gives the Inbox and Knowledge layers a concrete benchmark-oriented item that is worth preserving for later review.",
+  "preserve_recommendation": "keep",
+  "note_draft": "## Key insight\n\nThis benchmark is useful because it turns long-form agent evaluation into a repeatable reference point for later experimentation."
+}

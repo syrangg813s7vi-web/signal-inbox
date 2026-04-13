@@ -1,72 +1,94 @@
 import type { BuiltNoteResult, NoteBuildInput } from "./types";
 import { clampScore, firstNonEmpty, normalizeWhitespace, splitSentences } from "./utils";
 
-const MIN_IMPORTANCE_FOR_NOTE = 0.65;
-const MIN_NOVELTY_FOR_NOTE = 0.35;
-
 export function buildNoteIfPreservationWorthy(input: NoteBuildInput): BuiltNoteResult | null {
   if (input.dedupe.duplicateOfItemId) {
     return null;
   }
 
-  if (input.score.importanceScore < MIN_IMPORTANCE_FOR_NOTE) {
-    return null;
-  }
-
-  if (input.dedupe.noveltyScore < MIN_NOVELTY_FOR_NOTE) {
+  if (input.enrichment.preserveRecommendation !== "keep") {
     return null;
   }
 
   const title =
-    firstNonEmpty(input.item.title, input.summary.summaryShort, input.classification.topic) ??
+    firstNonEmpty(input.item.title, input.enrichment.summary.short, input.enrichment.classification.topic) ??
     "Preserved note";
   const excerpt = buildExcerpt(input.item.contentText);
   const highlights = uniqueNonEmpty([
-    input.summary.summaryShort,
+    input.enrichment.summary.short,
+    input.enrichment.whyItMatters,
+    ...input.enrichment.keyPoints,
     excerpt,
-    input.classification.topic,
-  ]).slice(0, 3);
+    input.enrichment.classification.topic,
+  ]).slice(0, 4);
   const noteType =
-    input.classification.classification === "research" || input.classification.classification === "tutorial"
+    input.enrichment.classification.label === "research" ||
+    input.enrichment.classification.label === "tutorial"
       ? "summary"
       : "reference";
-  const reviewWeight = clampScore((input.score.importanceScore + input.dedupe.noveltyScore) / 2);
+  const reviewWeight = clampScore(
+    (input.enrichment.importanceScore + input.enrichment.noveltyScore) / 2,
+  );
+  const bodyMd = input.enrichment.noteDraft
+    ? prefixTitleIfMissing(input.enrichment.noteDraft, title)
+    : buildFallbackNoteBody(input, title, excerpt);
+
+  return {
+    bodyMd,
+    highlights,
+    metadata: {
+      preservation: {
+        createdFrom: "processed_item",
+        importanceScore: input.enrichment.importanceScore,
+        noveltyScore: input.enrichment.noveltyScore,
+        pipelineVersion: "v1",
+        recommendation: input.enrichment.preserveRecommendation,
+        rule: "model-backed-preserve-recommendation",
+      },
+    },
+    noteType,
+    reviewWeight,
+    tags: input.enrichment.tags,
+    title,
+  };
+}
+
+function buildFallbackNoteBody(input: NoteBuildInput, title: string, excerpt: string | null) {
   const bodyLines = [
     `# ${title}`,
     "",
-    input.summary.summaryShort ? input.summary.summaryShort : "Preserved from the knowledge pipeline.",
+    input.enrichment.summary.short,
     "",
-    "## Why it was preserved",
+    input.enrichment.summary.long ? "## Summary" : null,
+    input.enrichment.summary.long ?? null,
     "",
-    `- Importance score: ${input.score.importanceScore.toFixed(2)}`,
-    `- Novelty score: ${input.dedupe.noveltyScore.toFixed(2)}`,
-    input.classification.classification ? `- Classification: ${input.classification.classification}` : null,
-    input.classification.topic ? `- Topic: ${input.classification.topic}` : null,
+    "## Why it matters",
+    "",
+    input.enrichment.whyItMatters,
+    "",
+    "## Key points",
+    "",
+    ...input.enrichment.keyPoints.map((point) => `- ${point}`),
+    "",
+    "## Preservation context",
+    "",
+    `- Importance score: ${input.enrichment.importanceScore.toFixed(2)}`,
+    `- Novelty score: ${input.enrichment.noveltyScore.toFixed(2)}`,
+    `- Baseline score heuristic: ${input.score.importanceScore.toFixed(2)}`,
+    `- Deduped as duplicate: ${input.dedupe.duplicateOfItemId ? "yes" : "no"}`,
+    input.enrichment.classification.label
+      ? `- Classification: ${input.enrichment.classification.label}`
+      : null,
+    input.enrichment.classification.topic ? `- Topic: ${input.enrichment.classification.topic}` : null,
     "",
     excerpt ? "## Source excerpt" : null,
-    "",
+    excerpt ? "" : null,
     excerpt ?? null,
     "",
     input.item.canonicalUrl ? `[Original source](${input.item.canonicalUrl})` : null,
   ].filter((line): line is string => line !== null);
 
-  return {
-    bodyMd: bodyLines.join("\n"),
-    highlights,
-    metadata: {
-      preservation: {
-        createdFrom: "processed_item",
-        importanceScore: input.score.importanceScore,
-        noveltyScore: input.dedupe.noveltyScore,
-        pipelineVersion: "v1",
-        rule: "importance-novelty-threshold",
-      },
-    },
-    noteType,
-    reviewWeight,
-    tags: input.classification.tags,
-    title,
-  };
+  return bodyLines.join("\n");
 }
 
 function buildExcerpt(contentText: string | null) {
@@ -84,6 +106,16 @@ function buildExcerpt(contentText: string | null) {
   }
 
   return `${normalizedExcerpt.slice(0, 319).trimEnd()}…`;
+}
+
+function prefixTitleIfMissing(noteDraft: string, title: string) {
+  const normalizedNoteDraft = noteDraft.trim();
+
+  if (!normalizedNoteDraft) {
+    return `# ${title}`;
+  }
+
+  return normalizedNoteDraft.startsWith("# ") ? normalizedNoteDraft : `# ${title}\n\n${normalizedNoteDraft}`;
 }
 
 function uniqueNonEmpty(values: Array<string | null | undefined>) {

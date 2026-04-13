@@ -31,7 +31,13 @@ export async function dedupeItem(
       itemId: enrichments.itemId,
     })
     .from(enrichments)
-    .where(and(eq(enrichments.dedupeKey, dedupeKey), ne(enrichments.itemId, item.id)))
+    .where(
+      and(
+        eq(enrichments.dedupeKey, dedupeKey),
+        eq(enrichments.isCurrent, true),
+        ne(enrichments.itemId, item.id),
+      ),
+    )
     .orderBy(asc(enrichments.createdAt));
 
   const matchedItemIds = duplicates.map((duplicate) => duplicate.itemId);

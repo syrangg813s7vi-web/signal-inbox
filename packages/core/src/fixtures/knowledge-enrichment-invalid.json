@@ -1,0 +1,20 @@
+{
+  "summary": {
+    "short": "This fixture is intentionally invalid.",
+    "long": null
+  },
+  "key_points": [
+    "Only one point is present."
+  ],
+  "classification": {
+    "label": "research",
+    "topic": "AI"
+  },
+  "tags": [
+    "research"
+  ],
+  "importance_score": 1.4,
+  "novelty_score": 0.3,
+  "preserve_recommendation": "keep",
+  "note_draft": null
+}

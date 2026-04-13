@@ -75,6 +75,16 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
       await transaction.unsafe(`
         do $$
         begin
+          if not exists (select 1 from pg_type where typname = 'preserve_recommendation') then
+            create type "preserve_recommendation" as enum ('keep', 'discard', 'review');
+          end if;
+        end
+        $$;
+      `);
+
+      await transaction.unsafe(`
+        do $$
+        begin
           if not exists (select 1 from pg_type where typname = 'item_group_type') then
             create type "item_group_type" as enum ('topic');
           end if;
@@ -143,12 +153,42 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
           "tags" text[],
           "topic" text,
           "classification" text,
+          "why_it_matters" text,
+          "preserve_recommendation" "preserve_recommendation",
+          "note_draft" text,
           "ai_commentary" text,
           "dedupe_key" text,
+          "is_current" boolean not null default true,
+          "superseded_at" timestamp with time zone,
           "metadata" jsonb not null default '{}'::jsonb,
           "created_at" timestamp with time zone not null default now(),
           "updated_at" timestamp with time zone not null default now()
         )
+      `);
+
+      await transaction.unsafe(`
+        alter table "enrichments"
+        add column if not exists "why_it_matters" text
+      `);
+
+      await transaction.unsafe(`
+        alter table "enrichments"
+        add column if not exists "preserve_recommendation" "preserve_recommendation"
+      `);
+
+      await transaction.unsafe(`
+        alter table "enrichments"
+        add column if not exists "note_draft" text
+      `);
+
+      await transaction.unsafe(`
+        alter table "enrichments"
+        add column if not exists "is_current" boolean not null default true
+      `);
+
+      await transaction.unsafe(`
+        alter table "enrichments"
+        add column if not exists "superseded_at" timestamp with time zone
       `);
 
       await transaction.unsafe(`
@@ -312,8 +352,13 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
       `);
 
       await transaction.unsafe(`
-        create unique index if not exists "enrichments_item_id_key"
+        drop index if exists "enrichments_item_id_key"
+      `);
+
+      await transaction.unsafe(`
+        create unique index if not exists "enrichments_current_item_id_key"
         on "enrichments" using btree ("item_id")
+        where "is_current" is true
       `);
 
       await transaction.unsafe(`

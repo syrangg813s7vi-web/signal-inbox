@@ -1,3 +1,4 @@
+import type { KnowledgeEnrichmentConfig, KnowledgeEnrichmentRunner } from "@signal-inbox/ai";
 import {
   processItem,
   recordItemProcessingFailure,
@@ -8,7 +9,10 @@ import {
 export interface RunProcessItemJobInput {
   databaseUrl?: string;
   itemId: string;
+  knowledgeEnrichmentConfig?: Partial<KnowledgeEnrichmentConfig>;
+  knowledgeEnrichmentRunner?: KnowledgeEnrichmentRunner;
   processItemRunner?: typeof processItem;
+  reprocess?: boolean;
 }
 
 export class ProcessItemJobError extends Error {
@@ -35,6 +39,9 @@ export async function runProcessItemJob(input: RunProcessItemJobInput) {
     const result = await processItemRunner(
       {
         itemId: input.itemId,
+        knowledgeEnrichmentConfig: input.knowledgeEnrichmentConfig,
+        knowledgeEnrichmentRunner: input.knowledgeEnrichmentRunner,
+        reprocess: input.reprocess,
       },
       input.databaseUrl,
     );

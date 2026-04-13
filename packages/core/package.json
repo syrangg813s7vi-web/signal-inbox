@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "capture-sync:smoke": "tsx src/rss-sync-smoke-test.ts",
+    "knowledge-enrichment:smoke": "tsx src/model-backed-enrichment-smoke-test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {

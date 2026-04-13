@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 
 import { desc, eq } from "drizzle-orm";
 
+import type { KnowledgeEnrichmentRunner } from "@signal-inbox/ai";
 import { createRssSource, getRssSource } from "@signal-inbox/capture";
 import {
   captureEntries,
@@ -74,6 +75,46 @@ interface EnrichmentMetadata {
     };
   };
 }
+
+const rssSmokeKnowledgeEnrichmentRunner: KnowledgeEnrichmentRunner = async ({ config, item }) => {
+  const firstSentence =
+    item.contentText?.split(/(?<=[.!?])\s+/)[0]?.trim() ?? item.contentText ?? item.title ?? "Item";
+  const topic = item.sourceTopic ?? "General";
+  const duplicateTopic = topic === "AI Duplicate";
+
+  return {
+    config,
+    output: {
+      classification: {
+        label: "topic-tracked",
+        topic,
+      },
+      importanceScore: duplicateTopic ? 0.45 : 0.82,
+      keyPoints: [
+        `${item.title ?? "Item"} is relevant to ${topic}.`,
+        firstSentence.endsWith(".") ? firstSentence : `${firstSentence}.`,
+        duplicateTopic
+          ? "The item appears to repeat information already seen from another source."
+          : "The item is worth keeping in the processed inbox flow.",
+      ],
+      noteDraft: duplicateTopic ? null : `## ${item.title ?? "Item"}\n\n${firstSentence}.`,
+      noveltyScore: duplicateTopic ? 0.4 : 0.63,
+      preserveRecommendation: duplicateTopic ? "discard" : "keep",
+      summary: {
+        long: `${item.title ?? "Item"} covers ${firstSentence.replace(/\.$/, "")}.`,
+        short: `${item.title ?? "Item"}: ${firstSentence.replace(/\.$/, "")}.`,
+      },
+      tags: [
+        "topic_tracked",
+        topic.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""),
+        item.language ? `lang_${item.language.toLowerCase()}` : "lang_en",
+      ],
+      whyItMatters: duplicateTopic
+        ? "This duplicate-source item should remain visible for dedupe checks but should not be preserved."
+        : "This item is useful enough to remain in Inbox and create a preservation note.",
+    },
+  };
+};
 
 async function main() {
   const temporaryPostgres = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
@@ -151,7 +192,7 @@ async function runSmokeTest(
     databaseUrl,
   );
 
-  const firstResult = await runRssSourceSyncJob(
+  const firstResult = await runSmokeRssSourceSyncJob(
     {
       databaseUrl,
       sourceId: createdSource.id,
@@ -170,6 +211,11 @@ async function runSmokeTest(
 
   const repeatedNormalizationResult = await runNormalizeRawAssetJob({
     databaseUrl,
+    processItemJobRunner: (processJobInput) =>
+      runProcessItemJob({
+        ...processJobInput,
+        knowledgeEnrichmentRunner: rssSmokeKnowledgeEnrichmentRunner,
+      }),
     rawAssetId: firstResult.rawAssetIds[0]!,
   });
 
@@ -219,10 +265,20 @@ async function runSmokeTest(
     const concurrentResults = await Promise.all([
       runNormalizeRawAssetJob({
         databaseUrl,
+        processItemJobRunner: (processJobInput) =>
+          runProcessItemJob({
+            ...processJobInput,
+            knowledgeEnrichmentRunner: rssSmokeKnowledgeEnrichmentRunner,
+          }),
         rawAssetId: concurrentRawAsset.id,
       }),
       runNormalizeRawAssetJob({
         databaseUrl,
+        processItemJobRunner: (processJobInput) =>
+          runProcessItemJob({
+            ...processJobInput,
+            knowledgeEnrichmentRunner: rssSmokeKnowledgeEnrichmentRunner,
+          }),
         rawAssetId: concurrentRawAsset.id,
       }),
     ]);
@@ -251,7 +307,7 @@ async function runSmokeTest(
     },
   ]);
 
-  const duplicateWithinBatchRun = await runRssSourceSyncJob(
+  const duplicateWithinBatchRun = await runSmokeRssSourceSyncJob(
     {
       databaseUrl,
       sourceId: createdSource.id,
@@ -320,7 +376,7 @@ async function runSmokeTest(
     );
     assert.equal(firstNormalizedItemMetadata.connectorType, "rss");
     assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.status, "processed");
-    assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.lastCompletedStep, "group");
+    assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.lastCompletedStep, "preserve");
     assert.equal(typeof firstNormalizedItemMetadata.knowledgeProcessing?.noteId, "string");
     assert.equal(firstNormalizedItemMetadata.knowledgeProcessing?.syncedDestinationCount, 2);
     assert.deepEqual(firstNormalizedItemMetadata.knowledgeProcessing?.order, [
@@ -329,6 +385,7 @@ async function runSmokeTest(
       "summarize",
       "classify",
       "group",
+      "preserve",
     ]);
     assert.equal(firstNormalizedItemMetadata.rss?.feedLanguage, "en");
     assert.equal(firstNormalizedItemMetadata.rss?.feedTitle, "Signal Inbox Feed");
@@ -340,7 +397,7 @@ async function runSmokeTest(
     assert.equal(typeof firstEnrichment?.noveltyScore, "number");
     assert.equal(firstEnrichmentMetadata.status, "processed");
     assert.equal(firstEnrichmentMetadata.pipelineVersion, "v1");
-    assert.equal(firstEnrichmentMetadata.lastCompletedStep, "group");
+    assert.equal(firstEnrichmentMetadata.lastCompletedStep, "preserve");
     assert.equal(firstEnrichmentMetadata.steps?.dedupe?.dedupeKey, "url:https://example.com/articles/1");
     assert.equal(firstNote?.title, "First article");
     assert.equal(firstNote?.noteType, "reference");
@@ -351,7 +408,7 @@ async function runSmokeTest(
     await dbClient.end();
   }
 
-  const duplicateRun = await runRssSourceSyncJob(
+  const duplicateRun = await runSmokeRssSourceSyncJob(
     {
       databaseUrl,
       sourceId: createdSource.id,
@@ -461,7 +518,7 @@ async function runSmokeTest(
     },
   ]);
 
-  const incrementalRun = await runRssSourceSyncJob(
+  const incrementalRun = await runSmokeRssSourceSyncJob(
     {
       databaseUrl,
       sourceId: createdSource.id,
@@ -494,7 +551,7 @@ async function runSmokeTest(
     },
   ]);
 
-  const duplicateUrlRun = await runRssSourceSyncJob(
+  const duplicateUrlRun = await runSmokeRssSourceSyncJob(
     {
       databaseUrl,
       sourceId: duplicateUrlSource.id,
@@ -614,6 +671,23 @@ async function runSmokeTest(
   } finally {
     await dbClient.end();
   }
+}
+
+async function runSmokeRssSourceSyncJob(
+  input: Parameters<typeof runRssSourceSyncJob>[0],
+) {
+  return runRssSourceSyncJob({
+    ...input,
+    normalizeRawAssetJobRunner: (jobInput) =>
+      runNormalizeRawAssetJob({
+        ...jobInput,
+        processItemJobRunner: (processJobInput) =>
+          runProcessItemJob({
+            ...processJobInput,
+            knowledgeEnrichmentRunner: rssSmokeKnowledgeEnrichmentRunner,
+          }),
+      }),
+  });
 }
 
 function buildRssFeed(

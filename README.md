@@ -57,6 +57,10 @@ Run the Inbox query-path smoke test with:
 
 `pnpm inbox:smoke`
 
+Run the model-backed knowledge enrichment smoke test with:
+
+`pnpm knowledge-enrichment:smoke`
+
 The smoke test runs the real `@signal-inbox/db` migration entrypoint and then inserts the minimal V1 chain:
 
 `Source -> CaptureEntry -> RawAsset -> Item -> Enrichment -> ItemGroup -> ItemGroupMember`

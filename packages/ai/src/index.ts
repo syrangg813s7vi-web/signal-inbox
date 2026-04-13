@@ -1,3 +1,556 @@
+interface KnowledgeEnrichmentPromptBundle {
+  system: string;
+  user: string;
+}
+
+interface KnowledgeEnrichmentResponseApiShape {
+  output_text?: string;
+  error?: {
+    message?: string;
+  };
+  output?: Array<{
+    content?: Array<{
+      text?: string;
+      type?: string;
+    }>;
+  }>;
+}
+
+export interface KnowledgeEnrichmentConfig {
+  maxOutputTokens: number;
+  model: string;
+  promptVersion: string;
+  provider: "openai";
+  retryAttempts: number;
+  retryBackoffMs: number;
+  temperature: number;
+  timeoutMs: number | null;
+}
+
+export interface KnowledgeEnrichmentModelInput {
+  author: string | null;
+  canonicalUrl: string | null;
+  contentText: string | null;
+  id: string;
+  language: string | null;
+  publishedAt: string | null;
+  sourceTopic: string | null;
+  title: string | null;
+}
+
+export interface KnowledgeEnrichmentOutput {
+  classification: {
+    label: string;
+    topic: string | null;
+  };
+  importanceScore: number;
+  keyPoints: string[];
+  noteDraft: string | null;
+  noveltyScore: number;
+  preserveRecommendation: "discard" | "keep" | "review";
+  summary: {
+    long: string | null;
+    short: string;
+  };
+  tags: string[];
+  whyItMatters: string;
+}
+
+export interface KnowledgeEnrichmentResult {
+  config: KnowledgeEnrichmentConfig;
+  output: KnowledgeEnrichmentOutput;
+}
+
+export type KnowledgeEnrichmentRunner = (input: {
+  config: KnowledgeEnrichmentConfig;
+  item: KnowledgeEnrichmentModelInput;
+}) => Promise<KnowledgeEnrichmentResult>;
+
+const DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG: KnowledgeEnrichmentConfig = {
+  maxOutputTokens: 900,
+  model: "gpt-4o-mini-2024-07-18",
+  promptVersion: "v1",
+  provider: "openai",
+  retryAttempts: 1,
+  retryBackoffMs: 250,
+  temperature: 0.2,
+  timeoutMs: 15_000,
+};
+
+const KNOWLEDGE_ENRICHMENT_OUTPUT_SCHEMA = {
+  additionalProperties: false,
+  properties: {
+    classification: {
+      additionalProperties: false,
+      properties: {
+        label: { type: "string" },
+        topic: {
+          anyOf: [{ type: "string" }, { type: "null" }],
+        },
+      },
+      required: ["label", "topic"],
+      type: "object",
+    },
+    importance_score: { maximum: 1, minimum: 0, type: "number" },
+    key_points: {
+      items: { type: "string" },
+      maxItems: 5,
+      minItems: 3,
+      type: "array",
+    },
+    note_draft: {
+      anyOf: [{ type: "string" }, { type: "null" }],
+    },
+    novelty_score: { maximum: 1, minimum: 0, type: "number" },
+    preserve_recommendation: {
+      enum: ["keep", "discard", "review"],
+      type: "string",
+    },
+    summary: {
+      additionalProperties: false,
+      properties: {
+        long: {
+          anyOf: [{ type: "string" }, { type: "null" }],
+        },
+        short: { type: "string" },
+      },
+      required: ["short", "long"],
+      type: "object",
+    },
+    tags: {
+      items: { type: "string" },
+      maxItems: 8,
+      minItems: 1,
+      type: "array",
+    },
+    why_it_matters: { type: "string" },
+  },
+  required: [
+    "summary",
+    "key_points",
+    "classification",
+    "tags",
+    "importance_score",
+    "novelty_score",
+    "why_it_matters",
+    "preserve_recommendation",
+    "note_draft",
+  ],
+  type: "object",
+} as const;
+
+export class KnowledgeEnrichmentConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "KnowledgeEnrichmentConfigurationError";
+  }
+}
+
+export class KnowledgeEnrichmentOutputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "KnowledgeEnrichmentOutputError";
+  }
+}
+
+export async function enrichItemWithModel(
+  input: {
+    config?: Partial<KnowledgeEnrichmentConfig>;
+    item: KnowledgeEnrichmentModelInput;
+  },
+  runner: KnowledgeEnrichmentRunner = runKnowledgeEnrichment,
+): Promise<KnowledgeEnrichmentResult> {
+  const config = resolveKnowledgeEnrichmentConfig(input.config);
+
+  return runner({
+    config,
+    item: input.item,
+  });
+}
+
+export function resolveKnowledgeEnrichmentConfig(
+  overrides: Partial<KnowledgeEnrichmentConfig> = {},
+  environment: NodeJS.ProcessEnv = process.env,
+): KnowledgeEnrichmentConfig {
+  const provider = readProvider(environment.KNOWLEDGE_ENRICHMENT_PROVIDER);
+  const model = readString(environment.KNOWLEDGE_ENRICHMENT_MODEL, DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.model);
+  const promptVersion = readString(
+    environment.KNOWLEDGE_ENRICHMENT_PROMPT_VERSION,
+    DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.promptVersion,
+  );
+  const temperature = readNumber(
+    environment.KNOWLEDGE_ENRICHMENT_TEMPERATURE,
+    DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.temperature,
+  );
+  const maxOutputTokens = readInteger(
+    environment.KNOWLEDGE_ENRICHMENT_MAX_OUTPUT_TOKENS,
+    DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.maxOutputTokens,
+  );
+  const timeoutMs = readOptionalInteger(
+    environment.KNOWLEDGE_ENRICHMENT_TIMEOUT_MS,
+    DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.timeoutMs,
+  );
+  const retryAttempts = readInteger(
+    environment.KNOWLEDGE_ENRICHMENT_RETRY_ATTEMPTS,
+    DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.retryAttempts,
+  );
+  const retryBackoffMs = readInteger(
+    environment.KNOWLEDGE_ENRICHMENT_RETRY_BACKOFF_MS,
+    DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.retryBackoffMs,
+  );
+
+  return {
+    maxOutputTokens: overrides.maxOutputTokens ?? maxOutputTokens,
+    model: overrides.model ?? model,
+    promptVersion: overrides.promptVersion ?? promptVersion,
+    provider: overrides.provider ?? provider,
+    retryAttempts: overrides.retryAttempts ?? retryAttempts,
+    retryBackoffMs: overrides.retryBackoffMs ?? retryBackoffMs,
+    temperature: overrides.temperature ?? temperature,
+    timeoutMs: overrides.timeoutMs ?? timeoutMs,
+  };
+}
+
+export async function runKnowledgeEnrichment(input: {
+  config: KnowledgeEnrichmentConfig;
+  item: KnowledgeEnrichmentModelInput;
+}): Promise<KnowledgeEnrichmentResult> {
+  if (input.config.provider !== "openai") {
+    throw new KnowledgeEnrichmentConfigurationError(
+      `Knowledge enrichment provider ${input.config.provider} is not supported.`,
+    );
+  }
+
+  return runOpenAiKnowledgeEnrichment(input);
+}
+
+function buildKnowledgeEnrichmentPrompts(input: {
+  item: KnowledgeEnrichmentModelInput;
+  promptVersion: string;
+}): KnowledgeEnrichmentPromptBundle {
+  if (input.promptVersion !== "v1") {
+    throw new KnowledgeEnrichmentConfigurationError(
+      `Knowledge enrichment prompt version ${input.promptVersion} is not supported.`,
+    );
+  }
+
+  return {
+    system: [
+      "You are the Knowledge Layer enrichment model for Signal Inbox.",
+      "Operate only on normalized Item data that has already passed capture and normalization.",
+      "Return structured JSON that matches the provided schema exactly.",
+      "Do not mention raw connectors, raw assets, HTML payloads, or extraction internals.",
+      "The summary must be concise and product-ready.",
+      "The key_points array must contain 3 to 5 specific takeaways.",
+      "Scores must be numbers between 0 and 1.",
+      "Use preserve_recommendation=keep only when the item is worth preserving into Knowledge.",
+    ].join("\n"),
+    user: JSON.stringify(
+      {
+        item: {
+          author: input.item.author,
+          canonical_url: input.item.canonicalUrl,
+          content_text: input.item.contentText,
+          id: input.item.id,
+          language: input.item.language,
+          published_at: input.item.publishedAt,
+          source_topic: input.item.sourceTopic,
+          title: input.item.title,
+        },
+      },
+      null,
+      2,
+    ),
+  };
+}
+
+function ensureString(value: unknown, fieldName: string) {
+  if (typeof value !== "string") {
+    throw new KnowledgeEnrichmentOutputError(`${fieldName} must be a string.`);
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new KnowledgeEnrichmentOutputError(`${fieldName} must not be empty.`);
+  }
+
+  return trimmed;
+}
+
+function ensureNullableString(value: unknown, fieldName: string) {
+  if (value === null) {
+    return null;
+  }
+
+  return ensureString(value, fieldName);
+}
+
+function ensureScore(value: unknown, fieldName: string) {
+  if (typeof value !== "number" || Number.isNaN(value) || value < 0 || value > 1) {
+    throw new KnowledgeEnrichmentOutputError(`${fieldName} must be a number between 0 and 1.`);
+  }
+
+  return Number(value.toFixed(2));
+}
+
+function ensureStringArray(
+  value: unknown,
+  fieldName: string,
+  constraints?: { maxLength?: number; minLength?: number },
+) {
+  if (!Array.isArray(value)) {
+    throw new KnowledgeEnrichmentOutputError(`${fieldName} must be an array of strings.`);
+  }
+
+  if (constraints?.minLength !== undefined && value.length < constraints.minLength) {
+    throw new KnowledgeEnrichmentOutputError(
+      `${fieldName} must contain at least ${constraints.minLength} entries.`,
+    );
+  }
+
+  if (constraints?.maxLength !== undefined && value.length > constraints.maxLength) {
+    throw new KnowledgeEnrichmentOutputError(
+      `${fieldName} must contain at most ${constraints.maxLength} entries.`,
+    );
+  }
+
+  return value.map((entry, index) => ensureString(entry, `${fieldName}[${index}]`));
+}
+
+function extractOutputText(response: KnowledgeEnrichmentResponseApiShape) {
+  if (typeof response.output_text === "string" && response.output_text.trim()) {
+    return response.output_text;
+  }
+
+  const fallbackText = response.output
+    ?.flatMap((entry) => entry.content ?? [])
+    .map((entry) => (entry.type === "output_text" || entry.type === "text" ? entry.text : null))
+    .find((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+
+  return fallbackText ?? null;
+}
+
+function parseKnowledgeEnrichmentOutput(value: unknown): KnowledgeEnrichmentOutput {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new KnowledgeEnrichmentOutputError("Knowledge enrichment output must be an object.");
+  }
+
+  const record = value as Record<string, unknown>;
+  const summary = record.summary;
+  const classification = record.classification;
+
+  if (!summary || typeof summary !== "object" || Array.isArray(summary)) {
+    throw new KnowledgeEnrichmentOutputError("summary must be an object.");
+  }
+
+  if (!classification || typeof classification !== "object" || Array.isArray(classification)) {
+    throw new KnowledgeEnrichmentOutputError("classification must be an object.");
+  }
+
+  const summaryRecord = summary as Record<string, unknown>;
+  const classificationRecord = classification as Record<string, unknown>;
+  const preserveRecommendation = record.preserve_recommendation;
+
+  if (
+    preserveRecommendation !== "discard" &&
+    preserveRecommendation !== "keep" &&
+    preserveRecommendation !== "review"
+  ) {
+    throw new KnowledgeEnrichmentOutputError(
+      "preserve_recommendation must be one of discard, keep, or review.",
+    );
+  }
+
+  return {
+    classification: {
+      label: ensureString(classificationRecord.label, "classification.label"),
+      topic: ensureNullableString(classificationRecord.topic, "classification.topic"),
+    },
+    importanceScore: ensureScore(record.importance_score, "importance_score"),
+    keyPoints: ensureStringArray(record.key_points, "key_points", {
+      maxLength: 5,
+      minLength: 3,
+    }),
+    noteDraft: ensureNullableString(record.note_draft, "note_draft"),
+    noveltyScore: ensureScore(record.novelty_score, "novelty_score"),
+    preserveRecommendation,
+    summary: {
+      long: ensureNullableString(summaryRecord.long, "summary.long"),
+      short: ensureString(summaryRecord.short, "summary.short"),
+    },
+    tags: ensureStringArray(record.tags, "tags", {
+      maxLength: 8,
+      minLength: 1,
+    }),
+    whyItMatters: ensureString(record.why_it_matters, "why_it_matters"),
+  };
+}
+
+export function validateKnowledgeEnrichmentOutput(value: unknown): KnowledgeEnrichmentOutput {
+  return parseKnowledgeEnrichmentOutput(value);
+}
+
+async function runOpenAiKnowledgeEnrichment(input: {
+  config: KnowledgeEnrichmentConfig;
+  item: KnowledgeEnrichmentModelInput;
+}): Promise<KnowledgeEnrichmentResult> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new KnowledgeEnrichmentConfigurationError(
+      "OPENAI_API_KEY must be set for model-backed knowledge enrichment.",
+    );
+  }
+
+  const prompts = buildKnowledgeEnrichmentPrompts({
+    item: input.item,
+    promptVersion: input.config.promptVersion,
+  });
+
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= input.config.retryAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId =
+      input.config.timeoutMs === null
+        ? null
+        : setTimeout(() => controller.abort(), input.config.timeoutMs);
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/responses", {
+        body: JSON.stringify({
+          input: [
+            {
+              content: [{ text: prompts.system, type: "input_text" }],
+              role: "system",
+            },
+            {
+              content: [{ text: prompts.user, type: "input_text" }],
+              role: "user",
+            },
+          ],
+          max_output_tokens: input.config.maxOutputTokens,
+          model: input.config.model,
+          temperature: input.config.temperature,
+          text: {
+            format: {
+              name: "knowledge_enrichment",
+              schema: KNOWLEDGE_ENRICHMENT_OUTPUT_SCHEMA,
+              strict: true,
+              type: "json_schema",
+            },
+          },
+        }),
+        headers: {
+          "authorization": `Bearer ${apiKey}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+        signal: controller.signal,
+      });
+      const responseJson = (await response.json()) as KnowledgeEnrichmentResponseApiShape;
+
+      if (!response.ok) {
+        throw new Error(
+          responseJson.error?.message
+            ? `OpenAI knowledge enrichment failed: ${responseJson.error.message}`
+            : `OpenAI knowledge enrichment failed with status ${response.status}.`,
+        );
+      }
+
+      const outputText = extractOutputText(responseJson);
+
+      if (!outputText) {
+        throw new KnowledgeEnrichmentOutputError(
+          "OpenAI knowledge enrichment returned no structured output text.",
+        );
+      }
+
+      return {
+        config: input.config,
+        output: validateKnowledgeEnrichmentOutput(JSON.parse(outputText) as unknown),
+      };
+    } catch (error) {
+      lastError = error;
+
+      if (attempt >= input.config.retryAttempts) {
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, input.config.retryBackoffMs));
+    } finally {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("OpenAI knowledge enrichment failed.");
+}
+
+function readInteger(value: string | undefined, fallback: number) {
+  if (!value?.trim()) {
+    return fallback;
+  }
+
+  const parsedValue = Number.parseInt(value, 10);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+    throw new KnowledgeEnrichmentConfigurationError(
+      `Expected a non-negative integer, received ${value}.`,
+    );
+  }
+
+  return parsedValue;
+}
+
+function readNumber(value: string | undefined, fallback: number) {
+  if (!value?.trim()) {
+    return fallback;
+  }
+
+  const parsedValue = Number(value);
+
+  if (Number.isNaN(parsedValue)) {
+    throw new KnowledgeEnrichmentConfigurationError(`Expected a number, received ${value}.`);
+  }
+
+  return parsedValue;
+}
+
+function readOptionalInteger(value: string | undefined, fallback: number | null) {
+  if (!value?.trim()) {
+    return fallback;
+  }
+
+  if (value === "null") {
+    return null;
+  }
+
+  return readInteger(value, 0);
+}
+
+function readProvider(value: string | undefined): KnowledgeEnrichmentConfig["provider"] {
+  if (!value?.trim()) {
+    return DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.provider;
+  }
+
+  if (value !== "openai") {
+    throw new KnowledgeEnrichmentConfigurationError(
+      `Knowledge enrichment provider ${value} is not supported.`,
+    );
+  }
+
+  return value;
+}
+
+function readString(value: string | undefined, fallback: string) {
+  return value?.trim() || fallback;
+}
+
 export const aiPackage = {
   name: "@signal-inbox/ai",
   responsibility: "Provider abstraction, prompts, and task routing.",
