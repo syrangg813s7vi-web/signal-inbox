@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "inbox:smoke": "tsx server/inbox-smoke-test.ts",
     "typecheck": "next typegen && tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "@types/react-dom": "19.2.2",
     "postcss": "8.5.6",
     "tailwindcss": "4.2.2",
+    "tsx": "^4.21.0",
     "typescript": "5.9.3"
   }
 }
