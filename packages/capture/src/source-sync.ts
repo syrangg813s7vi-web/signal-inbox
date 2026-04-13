@@ -243,10 +243,16 @@ export async function failSourceSyncExecution(
 
   try {
     await db.transaction(async (tx) => {
+      const [captureEntryRecord] = await tx
+        .select({ metadata: captureEntries.metadata })
+        .from(captureEntries)
+        .where(eq(captureEntries.id, input.captureEntryId));
+
       await tx
         .update(captureEntries)
         .set({
           metadata: {
+            ...(captureEntryRecord?.metadata ?? {}),
             failedAt: failedAt.toISOString(),
             message,
             phase: "failed",

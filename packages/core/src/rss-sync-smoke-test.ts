@@ -276,6 +276,15 @@ async function runSmokeTest(
     assert.equal(captureEntryRows.length, 5);
     assert.equal(captureEntryRows[0]?.status, "failed");
     assert.equal(captureEntryRows[1]?.status, "normalized");
+    assert.equal(
+      ((captureEntryRows[0]?.metadata ?? {}) as CaptureEntryMetadata & { connectorType?: string })
+        .connectorType,
+      "rss",
+    );
+    assert.equal(
+      ((captureEntryRows[0]?.metadata ?? {}) as CaptureEntryMetadata & { message?: string }).message,
+      `RSS fetch failed for source ${createdSource.id} with status 500.`,
+    );
     assert.equal(normalizedCaptureMetadata.phase, "completed");
     assert.equal(normalizedCaptureMetadata.fetchedCount, 2);
     assert.equal(normalizedCaptureMetadata.persistedCount, 1);
