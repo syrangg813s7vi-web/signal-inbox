@@ -4,9 +4,9 @@ export default function HomePage() {
   return (
     <ShellFrame
       eyebrow="Home"
-      title="A quiet shell for the first capture-to-inbox slice."
-      description="This web surface stays intentionally small: a calm overview now, an Inbox-first workflow next."
-      callout="The monorepo is scaffolded around Capture, Knowledge, and Review so the first vertical slice can land without rewriting the repository layout."
+      title="A quiet shell for capture, preservation, and later review."
+      description="Home stays intentionally small while Inbox handles processed Items and Knowledge makes preserved Notes visible."
+      callout="The repository is now shaped to prove both the first capture-to-inbox path and the first preservation path from processed Item to Note."
     />
   );
 }

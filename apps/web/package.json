@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "inbox:smoke": "tsx server/inbox-smoke-test.ts",
+    "knowledge:smoke": "tsx server/knowledge-smoke-test.ts",
     "typecheck": "next typegen && tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {

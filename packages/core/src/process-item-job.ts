@@ -46,7 +46,9 @@ export async function runProcessItemJob(input: RunProcessItemJobInput) {
       group_id: result.groupId,
       item_id: result.itemId,
       job_type: "process-item",
+      note_id: result.noteId,
       status: result.status,
+      synced_destination_count: result.syncedDestinationCount,
       topic: result.topic,
     });
 

@@ -9,6 +9,7 @@ import {
 const shellLinks = [
   { href: "/", label: "Home" },
   { href: "/inbox", label: "Inbox" },
+  { href: "/knowledge", label: "Knowledge" },
   { href: "/sources", label: "Sources" },
 ];
 

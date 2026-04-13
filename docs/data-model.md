@@ -285,6 +285,8 @@ Purpose:
 
 Store preservation-worthy knowledge objects built from Items.
 
+V1 note metadata may retain destination-specific sync state for the first Notion and Obsidian adapters until a dedicated knowledge-sync log object is needed.
+
 Fields:
 
 - `id`
@@ -313,6 +315,8 @@ Future note types:
 Purpose:
 
 Store configured knowledge sinks.
+
+V1 may bootstrap one default active destination per supported sink type so the first preservation path is usable before a dedicated destination-management surface exists.
 
 Fields:
 

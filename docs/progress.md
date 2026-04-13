@@ -22,7 +22,7 @@ Tasks should be small enough to implement and verify, but not so small that they
 
 ## Current Phase
 
-Phase 1: First Capture-to-Inbox Slice
+Phase 2: First Knowledge-Preservation Slice
 
 Current status:
 
@@ -30,7 +30,7 @@ Current status:
 - normalization into shared `Item` records is implemented
 - the minimal knowledge-processing pipeline is implemented in the documented order
 - Inbox now renders processed Items for first-slice review
-- first-slice validation now includes live preview validation and dedicated Inbox smoke coverage
+- Phase 2 now focuses on preserving high-value processed Items as `Note` records and exposing them through the Knowledge surface
 
 ## Phase 1 Goal
 
@@ -182,9 +182,9 @@ Phase 4 is complete when:
 
 ## Current Priorities
 
-1. stabilize and review the first capture-to-inbox slice
-2. keep Inbox review quality high as historical data catches up to the latest grouping behavior
-3. prepare the next vertical slice from processed Items into preserved Notes
+1. land the first `processed Item -> Note -> knowledge sink` path
+2. keep Inbox review quality high while preserving a clear separation from the Knowledge surface
+3. validate the first Notion and Obsidian destination adapters
 
 ## Confirmed Decisions
 
@@ -230,9 +230,9 @@ Phase 4 is complete when:
 
 ## Immediate Next Steps
 
-1. complete human review of the first Inbox slice
-2. begin Phase 2 note creation and knowledge-sink work
-3. keep the Inbox validation path current as follow-up fixes land
+1. add persisted `notes` and `knowledge_destinations`
+2. implement preservation-worthy Note creation in the Knowledge layer
+3. expose synced Notes on the Knowledge page
 
 ## Validation Targets For The First Slice
 
