@@ -478,6 +478,8 @@ Statuses:
 
 `captured -> failed`
 
+In V1, a `CaptureEntry` may move directly to `normalized` either after all persisted `RawAsset` records are normalized or after a sync run that produces no new `RawAsset` records, in which case `metadata.normalization.phase` may be `skipped`.
+
 ### RawAsset.status
 
 `new -> normalized`

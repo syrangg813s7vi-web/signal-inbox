@@ -266,6 +266,7 @@ The first slice is successful if:
 - the first `RawAsset -> Item` normalization slice now exists in code for RSS-backed assets
 - capture sync now immediately triggers normalization for newly persisted RSS raw assets in the first V1 orchestration path
 - normalization now preserves capture metadata across both success and failure transitions and handles cross-source `canonical_url` collisions by falling back to `metadata.canonicalUrlConflict`
+- duplicate-only sync runs now finalize their `CaptureEntry` as `normalized` with a skipped-normalization marker instead of remaining in `captured`
 
 ### 2026-04-10
 
