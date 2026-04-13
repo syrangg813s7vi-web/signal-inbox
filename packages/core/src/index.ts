@@ -24,7 +24,16 @@ export {
 } from "./normalize-raw-asset-job";
 
 export {
+  runProcessItemJob,
+  ProcessItemJobError,
+  ItemNotFoundError,
+  ItemProcessingValidationError,
+  type RunProcessItemJobInput,
+} from "./process-item-job";
+
+export {
   runRssSourceSyncJob,
   SourceSyncJobError,
+  SourceSyncPostProcessingError,
   type RunRssSourceSyncJobInput,
 } from "./capture-sync-job";

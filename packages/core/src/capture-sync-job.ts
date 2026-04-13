@@ -14,12 +14,26 @@ export interface RunRssSourceSyncJobInput {
   sourceId: string;
   triggerRef?: string | null;
   databaseUrl?: string;
+  normalizeRawAssetJobRunner?: (input: {
+    databaseUrl?: string;
+    rawAssetId: string;
+  }) => ReturnType<typeof runNormalizeRawAssetJob>;
 }
 
 export class SourceSyncJobError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
     super(message);
     this.name = "SourceSyncJobError";
+    this.cause = options?.cause;
+  }
+
+  declare cause?: unknown;
+}
+
+export class SourceSyncPostProcessingError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message);
+    this.name = "SourceSyncPostProcessingError";
     this.cause = options?.cause;
   }
 
@@ -54,6 +68,7 @@ export async function runRssSourceSyncJob(input: RunRssSourceSyncJobInput) {
     },
     input.databaseUrl,
   );
+  const normalizeRawAssetJobRunner = input.normalizeRawAssetJobRunner ?? runNormalizeRawAssetJob;
 
   try {
     const connectorResult = await fetchRssFeed({
@@ -71,14 +86,39 @@ export async function runRssSourceSyncJob(input: RunRssSourceSyncJobInput) {
     );
 
     const normalizedItemIds: string[] = [];
+    const processedItemIds: string[] = [];
 
     for (const rawAssetId of result.rawAssetIds) {
-      const normalizedResult = await runNormalizeRawAssetJob({
-        databaseUrl: input.databaseUrl,
-        rawAssetId,
-      });
+      try {
+        const normalizedResult = await normalizeRawAssetJobRunner({
+          databaseUrl: input.databaseUrl,
+          rawAssetId,
+        });
 
-      normalizedItemIds.push(normalizedResult.itemId);
+        normalizedItemIds.push(normalizedResult.itemId);
+        processedItemIds.push(normalizedResult.processedItemId);
+      } catch (error) {
+        const causeMessage =
+          error instanceof Error && error.message
+            ? error.message
+            : "Post-capture processing failed.";
+
+        console.error("source sync post-capture processing failed", {
+          capture_entry_id: result.captureEntryId,
+          job_type: "capture-sync",
+          message: causeMessage,
+          raw_asset_id: rawAssetId,
+          source_id: source.id,
+          status: "failed",
+        });
+
+        throw new SourceSyncPostProcessingError(
+          `Post-capture processing failed for source ${source.id} on raw asset ${rawAssetId}: ${causeMessage}`,
+          {
+            cause: error,
+          },
+        );
+      }
     }
 
     console.info("source sync succeeded", {
@@ -86,16 +126,22 @@ export async function runRssSourceSyncJob(input: RunRssSourceSyncJobInput) {
       job_type: "capture-sync",
       normalized_item_count: normalizedItemIds.length,
       persisted_count: result.persistedCount,
+      processed_item_count: processedItemIds.length,
       raw_asset_count: result.rawAssetIds.length,
       source_id: source.id,
-      status: "normalized",
+      status: "processed",
     });
 
     return {
       ...result,
       normalizedItemIds,
+      processedItemIds,
     };
   } catch (error) {
+    if (error instanceof SourceSyncPostProcessingError) {
+      throw error;
+    }
+
     const failure = await failSourceSyncExecution(
       {
         captureEntryId: execution.captureEntryId,

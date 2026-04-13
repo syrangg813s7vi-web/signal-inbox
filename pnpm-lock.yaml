@@ -26,6 +26,9 @@ importers:
       '@signal-inbox/db':
         specifier: workspace:*
         version: link:../../packages/db
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
       next:
         specifier: 16.2.3
         version: 16.2.3(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -87,6 +90,9 @@ importers:
       '@signal-inbox/connectors':
         specifier: workspace:*
         version: link:../connectors
+      '@signal-inbox/knowledge':
+        specifier: workspace:*
+        version: link:../knowledge
       '@signal-inbox/normalization':
         specifier: workspace:*
         version: link:../normalization
@@ -119,7 +125,14 @@ importers:
 
   packages/delivery: {}
 
-  packages/knowledge: {}
+  packages/knowledge:
+    dependencies:
+      '@signal-inbox/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
 
   packages/normalization:
     dependencies:

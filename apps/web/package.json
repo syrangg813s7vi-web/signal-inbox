@@ -12,6 +12,7 @@
     "@signal-inbox/capture": "workspace:*",
     "@signal-inbox/core": "workspace:*",
     "@signal-inbox/db": "workspace:*",
+    "drizzle-orm": "^0.45.2",
     "next": "16.2.3",
     "react": "19.2.5",
     "react-dom": "19.2.5"

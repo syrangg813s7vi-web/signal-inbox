@@ -6,8 +6,14 @@ import {
   RawAssetNotFoundError,
 } from "@signal-inbox/normalization";
 
+import { runProcessItemJob } from "./process-item-job";
+
 export interface RunNormalizeRawAssetJobInput {
   databaseUrl?: string;
+  processItemJobRunner?: (input: {
+    databaseUrl?: string;
+    itemId: string;
+  }) => ReturnType<typeof runProcessItemJob>;
   rawAssetId: string;
 }
 
@@ -29,8 +35,11 @@ export async function runNormalizeRawAssetJob(input: RunNormalizeRawAssetJobInpu
     raw_asset_id: input.rawAssetId,
   });
 
+  const processItemJobRunner = input.processItemJobRunner ?? runProcessItemJob;
+  let result: Awaited<ReturnType<typeof normalizeRawAsset>>;
+
   try {
-    const result = await normalizeRawAsset(
+    result = await normalizeRawAsset(
       {
         rawAssetId: input.rawAssetId,
       },
@@ -44,8 +53,6 @@ export async function runNormalizeRawAssetJob(input: RunNormalizeRawAssetJobInpu
       raw_asset_id: result.rawAssetId,
       status: "normalized",
     });
-
-    return result;
   } catch (error) {
     const causeMessage =
       error instanceof Error && error.message ? error.message : "Normalization failed.";
@@ -91,4 +98,16 @@ export async function runNormalizeRawAssetJob(input: RunNormalizeRawAssetJobInpu
       },
     );
   }
+
+  const processedResult = await processItemJobRunner(
+    {
+      databaseUrl: input.databaseUrl,
+      itemId: result.itemId,
+    },
+  );
+
+  return {
+    ...result,
+    processedItemId: processedResult.itemId,
+  };
 }

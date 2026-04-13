@@ -334,6 +334,11 @@ Minimum important log points:
 - delivery succeeded
 - delivery failed
 
+Failure boundaries:
+
+- `source sync failed` is reserved for fetch or capture-persistence failures
+- downstream normalization or item-processing failures must keep their own object state and logs instead of rewriting source-sync state as a capture failure
+
 Recommended log context fields:
 
 - `job_type`

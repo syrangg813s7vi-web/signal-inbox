@@ -17,8 +17,17 @@ export function getDatabaseUrl(): string {
   return databaseUrl;
 }
 
-export function createSqlClient(databaseUrl = getDatabaseUrl()): Sql {
-  return postgres(databaseUrl);
+export function createSqlClient(
+  databaseUrl = getDatabaseUrl(),
+  options: Parameters<typeof postgres>[1] = {},
+): Sql {
+  return postgres(databaseUrl, {
+    connect_timeout: 5,
+    idle_timeout: 5,
+    max: 1,
+    prepare: false,
+    ...options,
+  });
 }
 
 export function createDbFromClient(client: Sql) {

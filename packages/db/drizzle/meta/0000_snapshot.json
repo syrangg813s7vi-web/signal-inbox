@@ -452,6 +452,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "item_groups_group_type_tag_key": {
+          "name": "item_groups_group_type_tag_key",
+          "columns": [
+            {
+              "expression": "group_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tag",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},

@@ -379,6 +379,7 @@ Returns:
 2. The Capture Layer stores the input as `CaptureEntry`.
 3. One or more `RawAsset` records are created.
 4. V1 immediately triggers normalization for each new `RawAsset` after capture persistence.
+5. Capture-level failures only reflect fetch and capture persistence problems; downstream normalization or knowledge failures are recorded on their own layer objects without rewriting source sync state as a capture failure.
 
 ### Normalization Flow
 
@@ -386,15 +387,16 @@ Returns:
 2. Extraction and metadata cleanup run.
 3. The result is stored as one `Item`.
 4. The `RawAsset` and `CaptureEntry` statuses are advanced for the first slice.
-5. A later issue will enqueue the knowledge processing job.
+5. V1 immediately follows normalization by running the fixed knowledge processing job for each new `Item`.
 
 ### Knowledge Flow
 
 1. A processing job loads one `Item`.
-2. The fixed pipeline executes in order.
-3. The Item is updated with scores, summary, tags, topic grouping, and enrichment.
+2. The fixed pipeline executes in order: `score -> dedupe -> summarize -> classify -> group`.
+3. The Item is updated with persisted enrichment, topic grouping, and debugging metadata for Inbox consumption.
 4. A Note may be created if the item is preservation-worthy.
 5. A knowledge sync job may push the Note to a knowledge sink.
+6. Topic group creation must converge on one stable group per `group_type + tag` even under concurrent processing.
 
 ### Review Flow
 

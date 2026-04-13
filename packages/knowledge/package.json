@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@signal-inbox/db": "workspace:*",
+    "drizzle-orm": "^0.45.2"
+  },
   "exports": {
     ".": "./src/index.ts"
   }
