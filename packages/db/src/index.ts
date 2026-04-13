@@ -26,6 +26,7 @@ export {
   itemTypeEnum,
   notes,
   noteTypeEnum,
+  preserveRecommendationEnum,
   rawAssets,
   rawAssetStatusEnum,
   rawAssetTypeEnum,

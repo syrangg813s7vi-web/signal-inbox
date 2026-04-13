@@ -1,3 +1,4 @@
+import type { KnowledgeEnrichmentConfig, KnowledgeEnrichmentRunner } from "@signal-inbox/ai";
 import {
   failRawAssetNormalization,
   getRawAssetNormalizationContext,
@@ -13,6 +14,9 @@ export interface RunNormalizeRawAssetJobInput {
   processItemJobRunner?: (input: {
     databaseUrl?: string;
     itemId: string;
+    knowledgeEnrichmentConfig?: Partial<KnowledgeEnrichmentConfig>;
+    knowledgeEnrichmentRunner?: KnowledgeEnrichmentRunner;
+    reprocess?: boolean;
   }) => ReturnType<typeof runProcessItemJob>;
   rawAssetId: string;
 }

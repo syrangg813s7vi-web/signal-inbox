@@ -30,7 +30,7 @@ Current status:
 - normalization into shared `Item` records is implemented
 - the minimal knowledge-processing pipeline is implemented in the documented order
 - Inbox now renders processed Items for first-slice review
-- Phase 2 now focuses on preserving high-value processed Items as `Note` records and exposing them through the Knowledge surface
+- Phase 2 now focuses on model-backed enrichment plus preserving high-value processed Items as `Note` records and exposing them through the Knowledge surface
 
 ## Phase 1 Goal
 
@@ -182,9 +182,9 @@ Phase 4 is complete when:
 
 ## Current Priorities
 
-1. land the first `processed Item -> Note -> knowledge sink` path
+1. land the first model-backed `processed Item -> Enrichment` path in the Knowledge layer
 2. keep Inbox review quality high while preserving a clear separation from the Knowledge surface
-3. validate the first Notion and Obsidian destination adapters
+3. keep `processed Item -> Note -> knowledge sink` aligned with the new structured enrichment contract
 
 ## Confirmed Decisions
 

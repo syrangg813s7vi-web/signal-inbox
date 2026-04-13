@@ -155,12 +155,15 @@ async function loadInboxRows() {
         topicGroupTitle: topicGroupTitles.topicGroupTitle,
       })
       .from(items)
-      .innerJoin(enrichments, eq(enrichments.itemId, items.id))
+      .innerJoin(
+        enrichments,
+        and(eq(enrichments.itemId, items.id), eq(enrichments.isCurrent, true)),
+      )
       .leftJoin(rawAssets, eq(rawAssets.id, items.rawAssetId))
       .leftJoin(captureEntries, eq(captureEntries.id, rawAssets.captureEntryId))
       .leftJoin(sources, eq(sources.id, captureEntries.sourceId))
       .leftJoin(topicGroupTitles, eq(topicGroupTitles.itemId, items.id))
-      .where(and(eq(items.status, "processed"), isNotNull(enrichments.itemId)))
+      .where(and(eq(items.status, "processed"), eq(enrichments.isCurrent, true), isNotNull(enrichments.itemId)))
       .orderBy(desc(enrichments.importanceScore), desc(items.publishedAt), desc(items.createdAt))
       .limit(24);
   } finally {

@@ -1,4 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+
+import { enrichItemWithModel, type KnowledgeEnrichmentOutput } from "@signal-inbox/ai";
 
 import {
   captureEntries,
@@ -20,6 +22,7 @@ import { scoreItem } from "./score-item";
 import { summarizeItem } from "./summarize-item";
 import {
   V1_PROCESSING_ORDER,
+  type CurrentEnrichmentRecord,
   type ProcessItemInput,
   type ProcessItemResult,
   type ProcessableItemRecord,
@@ -71,6 +74,8 @@ export async function processItem(
 
   try {
     return await db.transaction(async (tx) => {
+      await lockItemForProcessing(tx, itemId);
+
       const item = await getProcessableItem(tx, itemId);
 
       if (!item) {
@@ -92,9 +97,9 @@ export async function processItem(
           topic: enrichments.topic,
         })
         .from(enrichments)
-        .where(eq(enrichments.itemId, item.id));
+        .where(and(eq(enrichments.itemId, item.id), eq(enrichments.isCurrent, true)));
 
-      if (item.status === "processed" && existingEnrichment) {
+      if (item.status === "processed" && existingEnrichment && !input.reprocess) {
         const processedAt = extractProcessedAt(item.metadata) ?? new Date().toISOString();
 
         return {
@@ -112,7 +117,7 @@ export async function processItem(
         };
       }
 
-      return await runKnowledgePipeline(tx, item);
+      return await runKnowledgePipeline(tx, item, existingEnrichment ?? null, input);
     });
   } finally {
     await client.end();
@@ -181,6 +186,8 @@ export async function recordItemProcessingFailure(
 async function runKnowledgePipeline(
   tx: DatabaseTransaction,
   item: ItemRow,
+  existingEnrichment: CurrentEnrichmentRecord | null,
+  input: ProcessItemInput,
 ): Promise<ProcessItemResult> {
   const processableItem: ProcessableItemRecord = {
     author: item.author,
@@ -196,27 +203,55 @@ async function runKnowledgePipeline(
 
   const score = scoreItem(processableItem);
   const dedupe = await dedupeItem(tx, processableItem, score);
-  const summary = summarizeItem(processableItem);
-  const classification = classifyItem(processableItem);
+  const enrichment = await enrichItemWithModel(
+    {
+      config: input.knowledgeEnrichmentConfig,
+      item: {
+        author: processableItem.author,
+        canonicalUrl: processableItem.canonicalUrl,
+        contentText: processableItem.contentText,
+        id: processableItem.id,
+        language: processableItem.language,
+        publishedAt: processableItem.publishedAt?.toISOString() ?? null,
+        sourceTopic: processableItem.sourceTopic,
+        title: processableItem.title,
+      },
+    },
+    input.knowledgeEnrichmentRunner,
+  );
+  const knowledgeOutput = applyKnowledgeLayerPostProcessing(dedupe, enrichment.output);
   const group = await groupItem(tx, {
-    classification,
+    classification: {
+      classification: knowledgeOutput.classification.label,
+      tags: knowledgeOutput.tags,
+      topic: knowledgeOutput.classification.topic,
+    },
     itemId: item.id,
   });
   const builtNote = buildNoteIfPreservationWorthy({
-    classification,
     dedupe,
+    enrichment: knowledgeOutput,
     item: processableItem,
     score,
-    summary,
   });
   const processedAt = new Date();
   let noteId: string | null = null;
   let syncedDestinationCount = 0;
   const processingMetadata = {
     completedAt: processedAt.toISOString(),
+    generation: {
+      maxOutputTokens: enrichment.config.maxOutputTokens,
+      model: enrichment.config.model,
+      promptVersion: enrichment.config.promptVersion,
+      provider: enrichment.config.provider,
+      retryAttempts: enrichment.config.retryAttempts,
+      retryBackoffMs: enrichment.config.retryBackoffMs,
+      temperature: enrichment.config.temperature,
+      timeoutMs: enrichment.config.timeoutMs,
+    },
     duplicateOfItemId: dedupe.duplicateOfItemId,
     groupId: group.groupId,
-    lastCompletedStep: "group",
+    lastCompletedStep: "preserve",
     lastError: null,
     matchedItemIds: dedupe.matchedItemIds,
     order: V1_PROCESSING_ORDER,
@@ -229,9 +264,9 @@ async function runKnowledgePipeline(
     syncedDestinationCount: 0,
     steps: {
       classify: {
-        classification: classification.classification,
-        tags: classification.tags,
-        topic: classification.topic,
+        classification: knowledgeOutput.classification.label,
+        tags: knowledgeOutput.tags,
+        topic: knowledgeOutput.classification.topic,
       },
       dedupe: {
         dedupeKey: dedupe.dedupeKey,
@@ -243,13 +278,22 @@ async function runKnowledgePipeline(
         tag: group.tag,
         title: group.title,
       },
+      preserve: {
+        noteDraftAvailable: Boolean(knowledgeOutput.noteDraft),
+        noteId: null as string | null,
+        noteStatus: builtNote ? "created" : "skipped",
+        preserveRecommendation: knowledgeOutput.preserveRecommendation,
+      },
       score: {
         importanceScore: score.importanceScore,
         noveltyScore: dedupe.noveltyScore,
         rationale: score.rationale,
       },
       summarize: {
-        summaryShort: summary.summaryShort,
+        keyPoints: knowledgeOutput.keyPoints,
+        summaryLong: knowledgeOutput.summary.long,
+        summaryShort: knowledgeOutput.summary.short,
+        whyItMatters: knowledgeOutput.whyItMatters,
       },
     },
   };
@@ -326,35 +370,43 @@ async function runKnowledgePipeline(
     processingMetadata.noteId = upsertedNote.id;
     processingMetadata.noteStatus = "created";
     processingMetadata.syncedDestinationCount = syncResults.length;
+    processingMetadata.steps.preserve.noteId = upsertedNote.id;
+    processingMetadata.steps.preserve.noteStatus = "created";
+  }
+
+  if (existingEnrichment) {
+    await tx
+      .update(enrichments)
+      .set({
+        isCurrent: false,
+        metadata: {
+          supersededAt: processedAt.toISOString(),
+        },
+        supersededAt: processedAt,
+        updatedAt: processedAt,
+      })
+      .where(and(eq(enrichments.itemId, item.id), eq(enrichments.isCurrent, true)));
   }
 
   const [upsertedEnrichment] = await tx
     .insert(enrichments)
     .values({
-      classification: classification.classification,
+      classification: knowledgeOutput.classification.label,
       dedupeKey: dedupe.dedupeKey,
-      importanceScore: score.importanceScore,
+      importanceScore: knowledgeOutput.importanceScore,
+      isCurrent: true,
       itemId: item.id,
+      keyPoints: knowledgeOutput.keyPoints,
       metadata: processingMetadata,
-      noveltyScore: dedupe.noveltyScore,
-      summaryShort: summary.summaryShort,
-      tags: classification.tags,
-      topic: classification.topic,
+      noteDraft: knowledgeOutput.noteDraft,
+      noveltyScore: knowledgeOutput.noveltyScore,
+      preserveRecommendation: knowledgeOutput.preserveRecommendation,
+      summaryLong: knowledgeOutput.summary.long,
+      summaryShort: knowledgeOutput.summary.short,
+      tags: knowledgeOutput.tags,
+      topic: knowledgeOutput.classification.topic,
       updatedAt: processedAt,
-    })
-    .onConflictDoUpdate({
-      set: {
-        classification: classification.classification,
-        dedupeKey: dedupe.dedupeKey,
-        importanceScore: score.importanceScore,
-        metadata: processingMetadata,
-        noveltyScore: dedupe.noveltyScore,
-        summaryShort: summary.summaryShort,
-        tags: classification.tags,
-        topic: classification.topic,
-        updatedAt: processedAt,
-      },
-      target: enrichments.itemId,
+      whyItMatters: knowledgeOutput.whyItMatters,
     })
     .returning({
       id: enrichments.id,
@@ -376,7 +428,7 @@ async function runKnowledgePipeline(
     .where(and(eq(items.id, item.id), eq(items.status, item.status)));
 
   return {
-    classification: classification.classification,
+    classification: knowledgeOutput.classification.label,
     duplicateOfItemId: dedupe.duplicateOfItemId,
     enrichmentId: upsertedEnrichment.id,
     groupId: group.groupId,
@@ -384,9 +436,9 @@ async function runKnowledgePipeline(
     noteId,
     processedAt: processedAt.toISOString(),
     status: "processed",
-    summaryShort: summary.summaryShort,
+    summaryShort: knowledgeOutput.summary.short,
     syncedDestinationCount,
-    topic: classification.topic,
+    topic: knowledgeOutput.classification.topic,
   };
 }
 
@@ -414,6 +466,10 @@ async function getProcessableItem(
     .where(eq(items.id, itemId));
 
   return item ?? null;
+}
+
+async function lockItemForProcessing(tx: DatabaseTransaction, itemId: string) {
+  await tx.execute(sql`select ${items.id} from ${items} where ${items.id} = ${itemId} for update`);
 }
 
 function extractKnowledgeProcessingMetadata(metadata: Record<string, unknown>) {
@@ -459,4 +515,19 @@ function extractSyncedDestinationCount(metadata: Record<string, unknown>) {
   const syncedDestinationCount = knowledgeProcessing.syncedDestinationCount;
 
   return typeof syncedDestinationCount === "number" ? syncedDestinationCount : 0;
+}
+
+function applyKnowledgeLayerPostProcessing(
+  dedupe: Awaited<ReturnType<typeof dedupeItem>>,
+  output: KnowledgeEnrichmentOutput,
+): KnowledgeEnrichmentOutput {
+  if (!dedupe.duplicateOfItemId) {
+    return output;
+  }
+
+  return {
+    ...output,
+    noveltyScore: 0,
+    preserveRecommendation: "discard",
+  };
 }

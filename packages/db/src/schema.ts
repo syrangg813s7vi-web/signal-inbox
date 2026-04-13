@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import {
   index,
+  boolean,
   jsonb,
   pgEnum,
   pgTable,
@@ -34,6 +35,11 @@ export const rawAssetStatusEnum = pgEnum("raw_asset_status", ["new", "normalized
 
 export const itemTypeEnum = pgEnum("item_type", ["article"]);
 export const itemStatusEnum = pgEnum("item_status", ["new", "processed", "archived"]);
+export const preserveRecommendationEnum = pgEnum("preserve_recommendation", [
+  "keep",
+  "discard",
+  "review",
+]);
 
 export const itemGroupTypeEnum = pgEnum("item_group_type", ["topic"]);
 export const noteTypeEnum = pgEnum("note_type", ["reference", "summary"]);
@@ -184,8 +190,13 @@ export const enrichments = pgTable(
     tags: text("tags").array(),
     topic: text("topic"),
     classification: text("classification"),
+    whyItMatters: text("why_it_matters"),
+    preserveRecommendation: preserveRecommendationEnum("preserve_recommendation"),
+    noteDraft: text("note_draft"),
     aiCommentary: text("ai_commentary"),
     dedupeKey: text("dedupe_key"),
+    isCurrent: boolean("is_current").notNull().default(true),
+    supersededAt: timestamp("superseded_at", { withTimezone: true, mode: "date" }),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(emptyJsonb),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
@@ -195,7 +206,9 @@ export const enrichments = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex("enrichments_item_id_key").on(table.itemId),
+    uniqueIndex("enrichments_current_item_id_key")
+      .on(table.itemId)
+      .where(sql`${table.isCurrent} is true`),
     index("enrichments_dedupe_key_idx").on(table.dedupeKey),
     index("enrichments_topic_idx").on(table.topic),
   ],

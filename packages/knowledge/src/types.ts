@@ -1,15 +1,18 @@
-export const V1_PROCESSING_ORDER = [
-  "score",
-  "dedupe",
-  "summarize",
-  "classify",
-  "group",
-] as const;
+import type {
+  KnowledgeEnrichmentConfig,
+  KnowledgeEnrichmentOutput,
+  KnowledgeEnrichmentRunner,
+} from "@signal-inbox/ai";
+
+export const V1_PROCESSING_ORDER = ["score", "dedupe", "summarize", "classify", "group", "preserve"] as const;
 
 export type KnowledgeProcessingStep = (typeof V1_PROCESSING_ORDER)[number];
 
 export interface ProcessItemInput {
   itemId: string;
+  knowledgeEnrichmentConfig?: Partial<KnowledgeEnrichmentConfig>;
+  knowledgeEnrichmentRunner?: KnowledgeEnrichmentRunner;
+  reprocess?: boolean;
 }
 
 export interface ProcessItemResult {
@@ -40,6 +43,7 @@ export interface DedupeStepResult {
 }
 
 export interface SummarizeStepResult {
+  keyPoints?: string[];
   summaryShort: string | null;
 }
 
@@ -68,11 +72,17 @@ export interface ProcessableItemRecord {
 }
 
 export interface NoteBuildInput {
-  classification: ClassifyStepResult;
   dedupe: DedupeStepResult;
+  enrichment: KnowledgeEnrichmentOutput;
   item: ProcessableItemRecord;
   score: ScoreStepResult;
-  summary: SummarizeStepResult;
+}
+
+export interface CurrentEnrichmentRecord {
+  classification: string | null;
+  id: string;
+  summaryShort: string | null;
+  topic: string | null;
 }
 
 export interface BuiltNoteResult {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
+import type { KnowledgeEnrichmentRunner } from "@signal-inbox/ai";
 import {
   captureEntries,
   createDbFromClient,
@@ -15,6 +16,32 @@ import {
 import { runProcessItemJob } from "@signal-inbox/core";
 
 import { getKnowledgePageViewModel } from "./knowledge";
+
+const knowledgeSmokeRunner: KnowledgeEnrichmentRunner = async ({ config, item }) => ({
+  config,
+  output: {
+    classification: {
+      label: "research",
+      topic: item.sourceTopic ?? "AI",
+    },
+    importanceScore: 0.9,
+    keyPoints: [
+      "The article introduces a benchmark for long-form agent evaluation.",
+      "It includes implementation notes relevant to production adoption.",
+      "It is worth preserving as a reference note.",
+    ],
+    noteDraft: "## Benchmark note\n\nThis item is worth preserving for later knowledge review.",
+    noveltyScore: 0.7,
+    preserveRecommendation: "keep",
+    summary: {
+      long: "The article covers benchmark details, implementation notes, and follow-up production questions.",
+      short: "OpenAI agent systems research highlights a practical benchmark for long-form evaluation.",
+    },
+    tags: ["research", "agents", "evaluation"],
+    whyItMatters:
+      "It is a concrete reference point for later agent-system evaluation work.",
+  },
+});
 
 async function main() {
   const temporaryPostgres = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
@@ -90,6 +117,7 @@ async function main() {
     const processResult = await runProcessItemJob({
       databaseUrl,
       itemId: item.id,
+      knowledgeEnrichmentRunner: knowledgeSmokeRunner,
     });
 
     assert.ok(processResult.noteId, "Processing should create a preservation Note.");

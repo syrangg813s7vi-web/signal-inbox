@@ -235,13 +235,16 @@ Fields:
 - `note_draft`
 - `ai_commentary`
 - `dedupe_key`
+- `is_current`
+- `superseded_at`
 - `metadata`
 - `created_at`
 - `updated_at`
 
 Constraints:
 
-- one current enrichment record per item in V1 is acceptable
+- one current enrichment record per item is required for product reads
+- older successful enrichment rows may remain as history when an item is reprocessed
 
 V1 enrichment shape:
 
@@ -272,9 +275,11 @@ V1 enrichment shape:
 Usage rule:
 
 - the enrichment record is the structured AI output contract for downstream product surfaces
+- product surfaces should read the current enrichment row for an item, not an arbitrary historical row
 - `Inbox` should consume summary, key points, classification, tags, scores, and why-it-matters reasoning
 - `Knowledge` should additionally consume preserve recommendation and note draft
 - `Review` should consume processed summaries, key points, classifications, and scores rather than raw source material
+- `metadata.generation` should retain the provider, model, prompt version, and key generation settings used to produce the row
 
 ### item_groups
 

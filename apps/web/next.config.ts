@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@signal-inbox/capture", "@signal-inbox/core", "@signal-inbox/db"],
+  transpilePackages: [
+    "@signal-inbox/ai",
+    "@signal-inbox/capture",
+    "@signal-inbox/connectors",
+    "@signal-inbox/core",
+    "@signal-inbox/db",
+    "@signal-inbox/knowledge",
+    "@signal-inbox/normalization",
+  ],
 };
 
 export default nextConfig;
