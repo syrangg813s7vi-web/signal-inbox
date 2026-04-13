@@ -28,6 +28,15 @@ interface CaptureEntryMetadata {
   skippedCount?: number;
 }
 
+interface ItemMetadata {
+  connectorType?: string;
+  rss?: {
+    feedLanguage?: string;
+    feedTitle?: string;
+    feedUrl?: string;
+  };
+}
+
 async function main() {
   const temporaryPostgres = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
   const databaseUrl = temporaryPostgres?.databaseUrl ?? process.env.DATABASE_URL;
@@ -38,7 +47,8 @@ async function main() {
     mode: "success" as "success" | "failure",
     xml: buildRssFeed([
       {
-        description: "First article description",
+        description:
+          "<p>First <strong>article</strong> description &amp; details.</p><p>Second paragraph.</p>",
         guid: "entry-1",
         link: "https://example.com/articles/1",
         pubDate: "Sat, 12 Apr 2026 10:00:00 GMT",
@@ -153,6 +163,10 @@ async function runSmokeTest(
       .where(eq(sourceSyncState.sourceId, createdSource.id));
     const rawAssetsAfterFirstRun = await db.select().from(rawAssets);
     const itemsAfterFirstRun = await db.select().from(items);
+    const firstNormalizedItem = itemsAfterFirstRun.find(
+      (item) => item.canonicalUrl === "https://example.com/articles/1",
+    );
+    const firstNormalizedItemMetadata = (firstNormalizedItem?.metadata ?? {}) as ItemMetadata;
 
     assert.ok(syncStateAfterFirstRun);
     assert.ok(syncStateAfterFirstRun.lastSyncedAt);
@@ -168,10 +182,15 @@ async function runSmokeTest(
     assert.equal(itemsAfterFirstRun.length, 3);
     assert.equal(rawAssetsAfterFirstRun.every((rawAsset) => rawAsset.status === "normalized"), true);
     assert.equal(itemsAfterFirstRun.every((item) => item.status === "new"), true);
+    assert.equal(firstNormalizedItem?.language, "en");
     assert.equal(
-      itemsAfterFirstRun.some((item) => item.contentText?.includes("First article description")),
-      true,
+      firstNormalizedItem?.contentText,
+      "First article description & details.\n\nSecond paragraph.",
     );
+    assert.equal(firstNormalizedItemMetadata.connectorType, "rss");
+    assert.equal(firstNormalizedItemMetadata.rss?.feedLanguage, "en");
+    assert.equal(firstNormalizedItemMetadata.rss?.feedTitle, "Signal Inbox Feed");
+    assert.equal(firstNormalizedItemMetadata.rss?.feedUrl, "https://example.com/feed");
     assert.equal(syncStateAfterFirstRun.sourceId, createdSource.id);
   } finally {
     await dbClient.end();
@@ -300,6 +319,7 @@ function buildRssFeed(
         <title>Signal Inbox Feed</title>
         <link>https://example.com/feed</link>
         <description>Smoke test feed</description>
+        <language>en</language>
         ${itemMarkup}
       </channel>
     </rss>`;
