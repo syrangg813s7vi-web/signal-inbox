@@ -70,6 +70,10 @@ async function main() {
       "Ambiguous historical memberships should not surface an arbitrary group label.",
     );
     assert.equal(singleMembershipItem.topicGroupTitle, "Systems topic");
+    assert.equal(duplicateMembershipItem.sourceName, "Inbox Smoke Feed");
+    assert.equal(duplicateMembershipItem.sourceTopic, "AI");
+    assert.equal(duplicateMembershipItem.sourceTypeLabel, "RSS");
+    assert.equal(singleMembershipItem.sourceName, "Inbox Smoke Feed");
 
     console.log("Inbox smoke test passed.");
   } finally {

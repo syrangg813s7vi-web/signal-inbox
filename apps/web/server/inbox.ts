@@ -2,12 +2,15 @@ import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import {
   bootstrapInboxStorageSchema,
+  captureEntries,
   createDbFromClient,
   createSqlClient,
   enrichments,
   itemGroupMembers,
   itemGroups,
   items,
+  rawAssets,
+  sources,
 } from "@signal-inbox/db";
 
 export interface InboxItemViewModel {
@@ -17,6 +20,9 @@ export interface InboxItemViewModel {
   importanceScore: number | null;
   noveltyScore: number | null;
   publishedAtLabel: string | null;
+  sourceName: string | null;
+  sourceTopic: string | null;
+  sourceTypeLabel: string | null;
   summaryShort: string | null;
   tags: string[];
   title: string;
@@ -39,6 +45,9 @@ interface InboxRow {
   metadata: Record<string, unknown>;
   noveltyScore: number | null;
   publishedAt: Date | null;
+  sourceName: string | null;
+  sourceTopic: string | null;
+  sourceType: "rss" | null;
   summaryShort: string | null;
   tags: string[] | null;
   title: string | null;
@@ -136,6 +145,9 @@ async function loadInboxRows() {
         metadata: items.metadata,
         noveltyScore: enrichments.noveltyScore,
         publishedAt: items.publishedAt,
+        sourceName: sources.name,
+        sourceTopic: sources.topic,
+        sourceType: sources.sourceType,
         summaryShort: enrichments.summaryShort,
         tags: enrichments.tags,
         title: items.title,
@@ -144,6 +156,9 @@ async function loadInboxRows() {
       })
       .from(items)
       .innerJoin(enrichments, eq(enrichments.itemId, items.id))
+      .leftJoin(rawAssets, eq(rawAssets.id, items.rawAssetId))
+      .leftJoin(captureEntries, eq(captureEntries.id, rawAssets.captureEntryId))
+      .leftJoin(sources, eq(sources.id, captureEntries.sourceId))
       .leftJoin(topicGroupTitles, eq(topicGroupTitles.itemId, items.id))
       .where(and(eq(items.status, "processed"), isNotNull(enrichments.itemId)))
       .orderBy(desc(enrichments.importanceScore), desc(items.publishedAt), desc(items.createdAt))
@@ -179,6 +194,9 @@ function mapInboxRow(row: InboxRow): InboxItemViewModel {
     importanceScore: row.importanceScore,
     noveltyScore: row.noveltyScore,
     publishedAtLabel: row.publishedAt ? timestampFormatter.format(row.publishedAt) : null,
+    sourceName: row.sourceName?.trim() || null,
+    sourceTopic: row.sourceTopic?.trim() || null,
+    sourceTypeLabel: row.sourceType ? formatSourceTypeLabel(row.sourceType) : null,
     summaryShort: row.summaryShort,
     tags: row.tags ?? [],
     title: row.title?.trim() || "Untitled item",
@@ -199,6 +217,10 @@ function extractDuplicateOfItemId(metadata: Record<string, unknown>) {
   const duplicateOfItemId = knowledgeProcessingRecord.duplicateOfItemId;
 
   return typeof duplicateOfItemId === "string" ? duplicateOfItemId : null;
+}
+
+function formatSourceTypeLabel(sourceType: "rss") {
+  return sourceType === "rss" ? "RSS" : sourceType;
 }
 
 function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {

@@ -76,6 +76,26 @@ function InboxItemCard({ item }: { item: InboxItemViewModel }) {
             ))}
           </div>
 
+          {item.sourceName || item.sourceTopic || item.sourceTypeLabel ? (
+            <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+              {item.sourceName ? (
+                <span className="rounded-full border border-[var(--border)] px-3 py-1">
+                  Source {item.sourceName}
+                </span>
+              ) : null}
+              {item.sourceTopic ? (
+                <span className="rounded-full border border-[var(--border)] px-3 py-1">
+                  Topic {item.sourceTopic}
+                </span>
+              ) : null}
+              {item.sourceTypeLabel ? (
+                <span className="rounded-full border border-[var(--border)] px-3 py-1">
+                  {item.sourceTypeLabel}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-4 text-sm leading-6 text-[var(--muted)]">
             <span>Importance {formatScore(item.importanceScore)}</span>
             <span>Novelty {formatScore(item.noveltyScore)}</span>
