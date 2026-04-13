@@ -272,6 +272,7 @@ The first slice is successful if:
 - the first Knowledge-layer `process-item` job now runs immediately after normalization for new Items
 - the V1 knowledge pipeline persists `Enrichment`, `ItemGroup`, and `ItemGroupMember` records using the fixed order `score -> dedupe -> summarize -> classify -> group`
 - processed Items now record debugging metadata for processing success and failure, and duplicate Items retain enough enrichment for Inbox consumption
+- the `/inbox` route now reads persisted processed Items, summaries, scores, classifications, and topic grouping through a dedicated web server query layer
 
 ### 2026-04-10
 
