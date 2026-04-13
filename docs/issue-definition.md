@@ -73,6 +73,7 @@ The normal condition for `In Review` is:
 - focused commit created
 - branch pushed
 - PR or review handoff prepared
+- any actionable PR review feedback has been addressed or explicitly answered with justified pushback
 
 If the issue changes a runnable website or app surface, `In Review` also requires:
 
@@ -80,6 +81,8 @@ If the issue changes a runnable website or app surface, `In Review` also require
 - the handoff includes the concrete Vercel preview URL for human review
 - the affected preview route is validated directly, not inferred only from typecheck, build, or deployment status
 - the primary user path for the issue works in the preview environment
+
+If a PR already exists, do not treat the issue as review-ready while actionable PR comments remain unresolved.
 
 Blocked work should remain blocked rather than being advanced to a review or done state.
 

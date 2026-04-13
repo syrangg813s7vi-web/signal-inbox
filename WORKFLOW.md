@@ -118,7 +118,12 @@ Follow the repository conventions in `docs/development-style.md`.
 24. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
 25. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
 26. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
-27. Summarize:
+27. If a PR already exists for the issue branch, review all actionable PR feedback before moving the issue to `In Review`.
+28. Treat actionable PR feedback as blocking until one of these is true:
+   - code, tests, or docs were updated to address it
+   - an explicit, justified pushback response was posted on the PR thread
+29. Do not leave actionable PR comments unresolved while classifying the issue as review-ready.
+30. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
@@ -172,6 +177,7 @@ Follow the repository conventions in `docs/development-style.md`.
 - Use `In Review` only for work that is already ready for human inspection and has a reviewable PR URL.
 - For web-facing changes, `In Review` also requires a Vercel preview deployment URL included in the handoff.
 - For web-facing changes, `In Review` also requires direct preview validation of the affected route or feature, not only passing checks.
+- If the issue branch already has a PR, `In Review` also requires that all actionable PR feedback has been addressed or explicitly answered with justified pushback.
 - Minimum direct preview validation means:
   - the affected preview route loads successfully
   - the route does not fail with runtime or server-render errors
