@@ -55,10 +55,14 @@ Ensure this directory exists and is writable.
 
 ## Expected Linear Workflow
 
-The current repository workflow is centered on these active and review states:
+The current repository workflow is centered on this state machine:
 
+- `Backlog`
+- `Todo`
 - `In Progress`
-- `In Review`
+- `Human Review`
+- `Merging`
+- `Rework`
 
 Terminal state:
 
@@ -82,10 +86,13 @@ Symphony agents should always read:
 
 1. Create or refine the issue in Linear.
 2. Ensure the issue has a clear scope and acceptance criteria.
-3. Move the issue into an active implementation state.
+3. Move the issue from `Backlog` into `Todo` when it is ready for Symphony pickup.
 4. Start Symphony against this repository's `WORKFLOW.md`.
-5. When the work is branch / commit / push / PR ready and the Vercel preview URL requirement is met for web-facing work, move it to `In Review`.
-6. Mark the issue `Done` only after human review and acceptance.
+5. Symphony should immediately move `Todo` issues to `In Progress` before active execution.
+6. When the work is branch / commit / push / PR ready and the Vercel preview requirement is met for web-facing work, move it to `Human Review`.
+7. If human review requests changes, move the issue to `Rework`.
+8. If human review approves the PR for landing, move the issue to `Merging`.
+9. Mark the issue `Done` only after merge or explicit human acceptance.
 
 ## Architecture Alignment
 

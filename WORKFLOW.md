@@ -3,8 +3,10 @@ tracker:
   kind: linear
   project_slug: "cdd793b8a803"
   active_states:
+    - Todo
     - In Progress
-    - In Review
+    - Merging
+    - Rework
   terminal_states:
     - Done
     - Canceled
@@ -98,12 +100,20 @@ Follow the repository conventions in `docs/development-style.md`.
 
 ## State Model
 
+- `Backlog`
+  - queued but not yet scheduled for active execution
+- `Todo`
+  - queued and eligible to be picked up; immediately transition to `In Progress` before active execution
 - `In Progress`
   - active implementation, investigation, validation, or rework is happening in the workspace
-- `In Review`
-  - the issue meets acceptance criteria and is ready for human review
+- `Human Review`
+  - the issue meets acceptance criteria, has a PR and validation evidence, and is waiting on human review
+- `Merging`
+  - the issue has human approval and is in merge or land flow
+- `Rework`
+  - reviewer feedback requires another implementation or validation loop before review can resume
 - `Done`
-  - reserved for human-reviewed and accepted work; do not move issues to `Done` from the agent workflow
+  - the issue has a merged or otherwise explicitly accepted change with no remaining blockers
 
 If work is blocked, keep it in a non-terminal blocked state and explain the blocker clearly.
 
@@ -123,6 +133,7 @@ Use a single persistent Linear comment as the source of truth for execution.
    - notes / reproduction evidence
    - blockers when present
 6. Do not post separate summary comments when the workpad can be updated instead.
+7. If the issue description contains `Validation`, `Test Plan`, or `Testing` sections, copy those requirements into the workpad as required checklist items rather than paraphrasing them away.
 
 ## Required Workflow
 
@@ -136,26 +147,40 @@ Use a single persistent Linear comment as the source of truth for execution.
 5. Record the reproduction signal in the workpad notes.
 6. Before code edits, sync with latest `origin/main`.
    - prefer a non-interactive pull/rebase flow
-   - record the sync result in the workpad notes, including resulting `HEAD` short SHA
+   - record the sync result in the workpad notes, including:
+     - merge source(s)
+     - result (`clean` or `conflicts resolved`)
+     - resulting `HEAD` short SHA
 7. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>`.
-8. Keep changes incremental and aligned with current repository terminology.
-9. Do not treat local changes alone as review-ready. The minimum implementation handoff is:
+8. If the issue already has a PR, treat the run as a feedback/rework loop first:
+   - start with the PR feedback sweep
+   - resolve blockers or reply with justified pushback
+   - only then decide whether new implementation work is needed
+9. Keep changes incremental and aligned with current repository terminology.
+10. Do not treat local changes alone as review-ready. The minimum implementation handoff is:
    - branch created
    - focused commit created
    - branch pushed
    - PR prepared or opened for human review
-10. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
-11. Prefer a draft PR unless the issue explicitly calls for a ready, non-draft review handoff.
-12. If PR creation fails, report the failure clearly, keep the issue out of `In Review`, and record the blocker in the workpad.
-13. Validate the affected path before stopping.
-14. If the acceptance criteria are met, stage the intended files and create a focused git commit.
-15. Use Conventional Commits for every commit in the form `type(scope): summary`.
-16. For implementation work, include a specific scope in the commit subject.
-17. Do not use generic imperative-only commit subjects such as `Fix ...` or `Add ...` without a Conventional Commit prefix.
-18. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
-19. Do not leave completed work only as uncommitted workspace changes unless genuinely blocked.
-20. Before moving to `In Review`, refresh the workpad so plan, acceptance criteria, validation, and blockers reflect reality exactly.
-21. Summarize in the final handoff:
+11. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
+12. Prefer a draft PR unless the issue explicitly calls for a ready, non-draft review handoff.
+13. If PR creation fails, report the failure clearly, keep the issue out of `Human Review`, and record the blocker in the workpad.
+14. Update the workpad after each meaningful milestone:
+   - reproduction complete
+   - code change landed
+   - validation run
+   - PR feedback addressed
+   - preview path revalidated
+15. Validate the affected path before stopping.
+16. If the acceptance criteria are met, stage the intended files and create a focused git commit.
+17. Use Conventional Commits for every commit in the form `type(scope): summary`.
+18. For implementation work, include a specific scope in the commit subject.
+19. Do not use generic imperative-only commit subjects such as `Fix ...` or `Add ...` without a Conventional Commit prefix.
+20. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
+21. Do not leave completed work only as uncommitted workspace changes unless genuinely blocked.
+22. Before moving to `Human Review`, refresh the workpad so plan, acceptance criteria, validation, and blockers reflect reality exactly.
+23. If the current issue branch PR is already merged and there are no remaining blockers, verify the merge landed on `main`, update the workpad with the merge evidence, and move the issue to `Done`.
+24. Summarize in the final handoff:
    - what changed
    - what docs changed
    - how the work was validated
@@ -182,12 +207,12 @@ When an issue branch already has a PR, run this protocol before treating the wor
    - code, tests, docs, or validation were updated to address it
    - an explicit, justified pushback reply was posted on the PR thread
 4. Do not treat "no formal review objects" as equivalent to "no review feedback" when top-level PR comments contain blockers or required validation gaps.
-5. After each significant push on a PR branch, re-read the PR comment stream before deciding the issue is ready for `In Review`.
-6. Before any transition to `In Review`, confirm there are no outstanding actionable PR comments.
+5. After each significant push on a PR branch, re-read the PR comment stream before deciding the issue is ready for `Human Review`.
+6. Before any transition to `Human Review`, confirm there are no outstanding actionable PR comments.
 7. For each actionable PR comment, leave visible resolution evidence on the PR before treating it as closed.
    - If the comment was fixed, reply with a short note describing the fix and the validation evidence.
    - If the comment is being rejected, reply with explicit, justified pushback.
-8. If actionable PR comments remain, keep the issue in `In Progress` and continue the implementation or validation loop.
+8. If actionable PR comments remain, keep the issue in `In Progress` or `Rework` and continue the implementation or validation loop.
 
 ## PR Comment Preservation Rules
 
@@ -203,12 +228,13 @@ When an issue branch already has a PR, run this protocol before treating the wor
 - Copy those validation requirements into the workpad and execute them before review handoff.
 - Prefer a targeted proof that directly demonstrates the changed behavior.
 - If temporary local proof edits are needed to validate assumptions, revert them before commit and document the proof steps in the workpad.
+- After each significant push on a PR branch, rerun the validation needed for the changed scope before declaring the issue review-ready again.
 
 For web-facing work:
 
 - Do not treat green typecheck, build, or deployment checks as sufficient proof of correctness on their own.
-- `In Review` requires a Vercel preview deployment URL included in the handoff.
-- `In Review` also requires direct preview validation of the affected route or feature.
+- `Human Review` requires a Vercel preview deployment URL included in the handoff.
+- `Human Review` also requires direct preview validation of the affected route or feature.
 - Minimum direct preview validation means:
   - the affected preview route loads successfully
   - the route does not fail with runtime or server-render errors
@@ -230,7 +256,18 @@ If blocked:
 
 - record the blocker in the workpad
 - explain why it blocks acceptance or validation
-- keep the issue out of `In Review`
+- keep the issue out of `Human Review`
+- do not treat ordinary local toolchain fixes, runtime configuration fixes, or unresolved PR feedback as external blockers
+
+## State Transition Contract
+
+- `Backlog` -> wait for a human to move the issue into `Todo`
+- `Todo` -> immediately move to `In Progress` before active work begins
+- `In Progress` -> stay here while implementing, validating, or addressing newly discovered blockers
+- `Rework` -> use when human review feedback requires another implementation loop
+- `Human Review` -> use only when the issue is validated, the PR is current, and no actionable PR comments remain
+- `Merging` -> use only after human approval when the issue is being landed
+- `Done` -> use only after merge or other explicit human acceptance with no remaining blockers
 
 ## Project-Specific Constraints
 

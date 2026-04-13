@@ -58,16 +58,26 @@ Bad examples:
 
 Use these meanings consistently:
 
+- `Backlog`
+  - the issue is parked and should not be picked up until a human moves it into `Todo`
+- `Todo`
+  - the issue is queued and ready to be picked up; active work should immediately move it to `In Progress`
 - `In Progress`
   - the issue is actively being implemented, investigated, or validated
-- `In Review`
-  - the issue meets acceptance criteria and is ready for human review
+- `Human Review`
+  - the issue meets acceptance criteria, has a PR and validation evidence, and is waiting on human review
+- `Merging`
+  - the issue has human approval and is being landed
+- `Rework`
+  - review feedback requires another implementation or validation loop
 - `Done`
-  - the work has passed human review or has otherwise been explicitly accepted by a human
+  - the work has passed human review, the PR has been merged, or the change has otherwise been explicitly accepted by a human
+- `Canceled` / `Duplicate`
+  - terminal non-delivery states; do not route work back out of these without an explicit human decision
 
-Do not move an issue to `In Review` if the work only exists as local uncommitted changes.
+Do not move an issue to `Human Review` if the work only exists as local uncommitted changes.
 
-The normal condition for `In Review` is:
+The normal condition for `Human Review` is:
 
 - acceptance criteria met
 - focused commit created
@@ -75,7 +85,7 @@ The normal condition for `In Review` is:
 - PR or review handoff prepared
 - any actionable PR review feedback has been addressed or explicitly answered with justified pushback
 
-If the issue changes a runnable website or app surface, `In Review` also requires:
+If the issue changes a runnable website or app surface, `Human Review` also requires:
 
 - the site is available through a Vercel preview deployment
 - the handoff includes the concrete Vercel preview URL for human review
@@ -83,6 +93,8 @@ If the issue changes a runnable website or app surface, `In Review` also require
 - the primary user path for the issue works in the preview environment
 
 If a PR already exists, do not treat the issue as review-ready while actionable PR comments remain unresolved.
+
+If the PR for the issue branch has been merged and no blockers remain, the issue should be moved out of `Human Review` or `Merging` and closed as `Done`.
 
 Blocked work should remain blocked rather than being advanced to a review or done state.
 
@@ -124,3 +136,5 @@ For web-facing issues, include a criterion equivalent to:
 - the Vercel preview deployment is available and a review URL is provided
 - the affected preview route loads successfully
 - the primary user action path works in preview
+
+If the issue includes a `Validation`, `Test Plan`, or `Testing` section, treat those items as required acceptance input rather than optional guidance.
