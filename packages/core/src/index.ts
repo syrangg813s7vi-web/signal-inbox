@@ -16,6 +16,14 @@ export type ArchitectureLayer = (typeof ARCHITECTURE_LAYERS)[number];
 export type ArchitectureName = ArchitectureDomain | ArchitectureLayer;
 
 export {
+  runNormalizeRawAssetJob,
+  NormalizeRawAssetJobError,
+  NormalizationValidationError,
+  RawAssetNotFoundError,
+  type RunNormalizeRawAssetJobInput,
+} from "./normalize-raw-asset-job";
+
+export {
   runRssSourceSyncJob,
   SourceSyncJobError,
   type RunRssSourceSyncJobInput,

@@ -263,6 +263,12 @@ The first slice is successful if:
 
 - Phase 1 work now includes the first user-visible `Sources` surface for RSS source creation, pause, and reactivation
 - source status visibility should show both configured source state and the initialized sync-state baseline without starting sync execution in the same issue
+- the first `RawAsset -> Item` normalization slice now exists in code for RSS-backed assets
+- capture sync now immediately triggers normalization for newly persisted RSS raw assets in the first V1 orchestration path
+- normalization now preserves capture metadata across both success and failure transitions and handles cross-source `canonical_url` collisions by falling back to `metadata.canonicalUrlConflict`
+- duplicate-only sync runs now finalize their `CaptureEntry` as `normalized` with a skipped-normalization marker instead of remaining in `captured`
+- normalization now retries after both canonical URL and same-asset unique-key races so concurrent workers can still converge on one stable `Item`
+- smoke coverage now includes idempotent re-normalization and parallel normalization of the same fresh `RawAsset`
 
 ### 2026-04-10
 

@@ -188,6 +188,9 @@ Fields:
 - `created_at`
 - `updated_at`
 
+V1 normalization metadata should retain enough source context for downstream processing, including extraction details and connector identity, without embedding summaries, scores, or ranking output.
+When a normalized `Item` would collide with an existing `canonical_url`, V1 may preserve the conflicting URL in `metadata.canonicalUrlConflict` and leave `canonical_url` null so normalization can still produce a stable shared `Item`.
+
 Constraints:
 
 - unique by `canonical_url` when present
@@ -474,6 +477,8 @@ Statuses:
 `captured -> normalized`
 
 `captured -> failed`
+
+In V1, a `CaptureEntry` may move directly to `normalized` either after all persisted `RawAsset` records are normalized or after a sync run that produces no new `RawAsset` records, in which case `metadata.normalization.phase` may be `skipped`.
 
 ### RawAsset.status
 

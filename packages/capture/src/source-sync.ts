@@ -180,12 +180,20 @@ export async function completeRssSourceSyncExecution(
             fetchedCount: input.connectorResult.items.length,
             feed: input.connectorResult.metadata,
             finalUrl: input.connectorResult.finalUrl,
+            normalization:
+              insertedAssets.length === 0
+                ? {
+                    normalizedAt: completedAt.toISOString(),
+                    phase: "skipped",
+                    reason: "no_new_raw_assets",
+                  }
+                : undefined,
             persistedCount: insertedAssets.length,
             phase: "completed",
             skippedCount: input.connectorResult.items.length - insertedAssets.length,
             sourceUrl: input.connectorResult.sourceUrl,
           },
-          status: "captured",
+          status: insertedAssets.length === 0 ? "normalized" : "captured",
         })
         .where(eq(captureEntries.id, input.captureEntryId));
 
@@ -243,10 +251,16 @@ export async function failSourceSyncExecution(
 
   try {
     await db.transaction(async (tx) => {
+      const [captureEntryRecord] = await tx
+        .select({ metadata: captureEntries.metadata })
+        .from(captureEntries)
+        .where(eq(captureEntries.id, input.captureEntryId));
+
       await tx
         .update(captureEntries)
         .set({
           metadata: {
+            ...(captureEntryRecord?.metadata ?? {}),
             failedAt: failedAt.toISOString(),
             message,
             phase: "failed",
