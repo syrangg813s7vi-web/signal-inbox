@@ -60,18 +60,9 @@ interface NormalizedItemDraft {
   title: string | null;
 }
 
-type PostgresErrorLike = Error & {
-  cause?: unknown;
-  code?: string;
-  constraint?: string;
-  constraint_name?: string;
-};
-
 type DatabaseTransaction = Parameters<
   Parameters<ReturnType<typeof createDbFromClient>["transaction"]>[0]
 >[0];
-
-const CANONICAL_URL_CONSTRAINT = "items_canonical_url_key";
 
 export class RawAssetNotFoundError extends Error {
   constructor(message: string) {
@@ -308,52 +299,33 @@ async function insertNormalizedItem(
   normalizedItem: NormalizedItemDraft,
   normalizedAt: Date,
 ) {
-  try {
-    const [insertedItem] = await tx
-      .insert(items)
-      .values({
-        author: normalizedItem.author,
-        canonicalUrl: normalizedItem.canonicalUrl,
-        contentText: normalizedItem.contentText,
-        itemType: normalizedItem.itemType,
-        language: normalizedItem.language,
-        metadata: normalizedItem.metadata,
-        publishedAt: normalizedItem.publishedAt,
-        rawAssetId,
-        status: "new",
-        title: normalizedItem.title,
-        updatedAt: normalizedAt,
-      })
-      .returning({ id: items.id });
+  const hasCanonicalUrlConflict = normalizedItem.canonicalUrl
+    ? await findExistingItemByCanonicalUrl(tx, normalizedItem.canonicalUrl)
+    : false;
 
-    return insertedItem;
-  } catch (error) {
-    if (!isConstraintError(error, CANONICAL_URL_CONSTRAINT)) {
-      throw error;
-    }
+  const [insertedItem] = await tx
+    .insert(items)
+    .values({
+      author: normalizedItem.author,
+      canonicalUrl: hasCanonicalUrlConflict ? null : normalizedItem.canonicalUrl,
+      contentText: normalizedItem.contentText,
+      itemType: normalizedItem.itemType,
+      language: normalizedItem.language,
+      metadata: hasCanonicalUrlConflict
+        ? {
+            ...normalizedItem.metadata,
+            canonicalUrlConflict: normalizedItem.canonicalUrl,
+          }
+        : normalizedItem.metadata,
+      publishedAt: normalizedItem.publishedAt,
+      rawAssetId,
+      status: "new",
+      title: normalizedItem.title,
+      updatedAt: normalizedAt,
+    })
+    .returning({ id: items.id });
 
-    const [insertedItem] = await tx
-      .insert(items)
-      .values({
-        author: normalizedItem.author,
-        canonicalUrl: null,
-        contentText: normalizedItem.contentText,
-        itemType: normalizedItem.itemType,
-        language: normalizedItem.language,
-        metadata: {
-          ...normalizedItem.metadata,
-          canonicalUrlConflict: normalizedItem.canonicalUrl,
-        },
-        publishedAt: normalizedItem.publishedAt,
-        rawAssetId,
-        status: "new",
-        title: normalizedItem.title,
-        updatedAt: normalizedAt,
-      })
-      .returning({ id: items.id });
-
-    return insertedItem;
-  }
+  return insertedItem;
 }
 
 async function finalizeCaptureEntryStatus(
@@ -448,27 +420,15 @@ function firstNonEmpty(values: Array<string | null>): string | null {
   return values.find((value) => Boolean(value)) ?? null;
 }
 
-function isConstraintError(error: unknown, expectedConstraint: string): boolean {
-  const postgresError = unwrapPostgresError(error);
+async function findExistingItemByCanonicalUrl(
+  tx: DatabaseTransaction,
+  canonicalUrl: string,
+): Promise<boolean> {
+  const [existingItem] = await tx
+    .select({ id: items.id })
+    .from(items)
+    .where(eq(items.canonicalUrl, canonicalUrl))
+    .limit(1);
 
-  return (
-    postgresError.code === "23505" &&
-    (postgresError.constraint_name ?? postgresError.constraint) === expectedConstraint
-  );
-}
-
-function unwrapPostgresError(error: unknown): PostgresErrorLike {
-  let current = error;
-
-  while (current && typeof current === "object") {
-    const postgresError = current as PostgresErrorLike;
-
-    if (postgresError.code || postgresError.constraint || postgresError.constraint_name) {
-      return postgresError;
-    }
-
-    current = postgresError.cause;
-  }
-
-  return (error as PostgresErrorLike) ?? new Error("Unknown PostgreSQL error.");
+  return Boolean(existingItem);
 }

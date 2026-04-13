@@ -29,6 +29,7 @@ interface CaptureEntryMetadata {
 }
 
 interface ItemMetadata {
+  canonicalUrlConflict?: string;
   connectorType?: string;
   rss?: {
     feedLanguage?: string;
@@ -64,7 +65,7 @@ async function main() {
     ]),
   };
   const server = createServer((request, response) => {
-    if (request.url !== "/feed.xml") {
+    if (request.url !== "/feed.xml" && request.url !== "/feed-duplicate.xml") {
       response.writeHead(404).end();
       return;
     }
@@ -82,10 +83,11 @@ async function main() {
   assert.ok(address && typeof address === "object");
 
   const sourceUrl = `http://127.0.0.1:${address.port}/feed.xml`;
+  const duplicateSourceUrl = `http://127.0.0.1:${address.port}/feed-duplicate.xml`;
 
   try {
     await runMigrations(databaseUrl);
-    await runSmokeTest(databaseUrl, sourceUrl, feedState);
+    await runSmokeTest(databaseUrl, sourceUrl, duplicateSourceUrl, feedState);
     console.log("RSS source sync smoke test passed.");
   } finally {
     server.closeAllConnections();
@@ -97,6 +99,7 @@ async function main() {
 async function runSmokeTest(
   databaseUrl: string,
   sourceUrl: string,
+  duplicateSourceUrl: string,
   feedState: {
     mode: "success" | "failure";
     xml: string;
@@ -239,6 +242,38 @@ async function runSmokeTest(
   assert.equal(incrementalRun.skippedCount, 1);
   assert.equal(incrementalRun.normalizedItemIds.length, 1);
 
+  const duplicateUrlSource = await createRssSource(
+    {
+      name: "RSS Duplicate URL Feed",
+      sourceUrl: duplicateSourceUrl,
+      topic: "AI Duplicate",
+    },
+    databaseUrl,
+  );
+
+  feedState.xml = buildRssFeed([
+    {
+      description: "<p>Same article from another source.</p>",
+      guid: "entry-cross-source-1",
+      link: "https://example.com/articles/1",
+      pubDate: "Sat, 12 Apr 2026 12:00:00 GMT",
+      title: "First article duplicate from another source",
+    },
+  ]);
+
+  const duplicateUrlRun = await runRssSourceSyncJob(
+    {
+      databaseUrl,
+      sourceId: duplicateUrlSource.id,
+      triggerRef: `smoke-duplicate-url-${randomUUID()}`,
+    },
+  );
+
+  assert.equal(duplicateUrlRun.fetchedCount, 1);
+  assert.equal(duplicateUrlRun.persistedCount, 1);
+  assert.equal(duplicateUrlRun.skippedCount, 0);
+  assert.equal(duplicateUrlRun.normalizedItemIds.length, 1);
+
   feedState.mode = "failure";
 
   await assert.rejects(
@@ -266,6 +301,8 @@ async function runSmokeTest(
       .orderBy(desc(captureEntries.createdAt));
     const rawAssetRows = await db.select().from(rawAssets);
     const itemRows = await db.select().from(items);
+    const duplicateUrlItem = itemRows.find((item) => item.id === duplicateUrlRun.normalizedItemIds[0]);
+    const duplicateUrlItemMetadata = (duplicateUrlItem?.metadata ?? {}) as ItemMetadata;
     const [finalSyncState] = await db
       .select()
       .from(sourceSyncState)
@@ -290,8 +327,13 @@ async function runSmokeTest(
     assert.equal(normalizedCaptureMetadata.persistedCount, 1);
     assert.equal(normalizedCaptureMetadata.skippedCount, 1);
     assert.equal(normalizedCaptureMetadata.normalization?.phase, "completed");
-    assert.equal(rawAssetRows.length, 4);
-    assert.equal(itemRows.length, 4);
+    assert.equal(rawAssetRows.length, 5);
+    assert.equal(itemRows.length, 5);
+    assert.equal(duplicateUrlItem?.canonicalUrl, null);
+    assert.equal(
+      duplicateUrlItemMetadata.canonicalUrlConflict,
+      "https://example.com/articles/1",
+    );
     assert.ok(finalSyncState?.lastErrorAt);
     assert.match(finalSyncState?.lastErrorMessage ?? "", /status 500/);
     assert.equal(finalSource?.status, "error");
