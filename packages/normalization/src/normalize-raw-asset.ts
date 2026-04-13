@@ -60,9 +60,18 @@ interface NormalizedItemDraft {
   title: string | null;
 }
 
+type PostgresErrorLike = Error & {
+  cause?: unknown;
+  code?: string;
+  constraint?: string;
+  constraint_name?: string;
+};
+
 type DatabaseTransaction = Parameters<
   Parameters<ReturnType<typeof createDbFromClient>["transaction"]>[0]
 >[0];
+
+const CANONICAL_URL_CONSTRAINT = "items_canonical_url_key";
 
 export class RawAssetNotFoundError extends Error {
   constructor(message: string) {
@@ -90,10 +99,36 @@ export async function normalizeRawAsset(
 
   const client = createSqlClient(databaseUrl);
   const db = createDbFromClient(client);
-  const normalizedAt = new Date();
 
   try {
-    const result = await db.transaction(async (tx) => {
+    try {
+      return await runNormalizeRawAssetTransaction(db, rawAssetId, {
+        forceCanonicalUrlFallback: false,
+      });
+    } catch (error) {
+      if (!isConstraintError(error, CANONICAL_URL_CONSTRAINT)) {
+        throw error;
+      }
+
+      return await runNormalizeRawAssetTransaction(db, rawAssetId, {
+        forceCanonicalUrlFallback: true,
+      });
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+async function runNormalizeRawAssetTransaction(
+  db: ReturnType<typeof createDbFromClient>,
+  rawAssetId: string,
+  options: {
+    forceCanonicalUrlFallback: boolean;
+  },
+): Promise<NormalizeRawAssetSuccessResult> {
+  const normalizedAt = new Date();
+
+  return db.transaction(async (tx) => {
       const [rawAsset] = await tx
         .select({
           assetType: rawAssets.assetType,
@@ -141,7 +176,9 @@ export async function normalizeRawAsset(
       }
 
       const normalizedItem = buildNormalizedItem(rawAsset, normalizedAt);
-      const insertedItem = await insertNormalizedItem(tx, rawAsset.id, normalizedItem, normalizedAt);
+      const insertedItem = await insertNormalizedItem(tx, rawAsset.id, normalizedItem, normalizedAt, {
+        forceCanonicalUrlFallback: options.forceCanonicalUrlFallback,
+      });
 
       await tx
         .update(rawAssets)
@@ -159,11 +196,6 @@ export async function normalizeRawAsset(
         rawAssetId: rawAsset.id,
       };
     });
-
-    return result;
-  } finally {
-    await client.end();
-  }
 }
 
 export async function failRawAssetNormalization(
@@ -298,8 +330,13 @@ async function insertNormalizedItem(
   rawAssetId: string,
   normalizedItem: NormalizedItemDraft,
   normalizedAt: Date,
+  options: {
+    forceCanonicalUrlFallback: boolean;
+  },
 ) {
-  const hasCanonicalUrlConflict = normalizedItem.canonicalUrl
+  const hasCanonicalUrlConflict = options.forceCanonicalUrlFallback
+    ? true
+    : normalizedItem.canonicalUrl
     ? await findExistingItemByCanonicalUrl(tx, normalizedItem.canonicalUrl)
     : false;
 
@@ -431,4 +468,29 @@ async function findExistingItemByCanonicalUrl(
     .limit(1);
 
   return Boolean(existingItem);
+}
+
+function isConstraintError(error: unknown, expectedConstraint: string): boolean {
+  const postgresError = unwrapPostgresError(error);
+
+  return (
+    postgresError.code === "23505" &&
+    (postgresError.constraint_name ?? postgresError.constraint) === expectedConstraint
+  );
+}
+
+function unwrapPostgresError(error: unknown): PostgresErrorLike {
+  let current = error;
+
+  while (current && typeof current === "object") {
+    const postgresError = current as PostgresErrorLike;
+
+    if (postgresError.code || postgresError.constraint || postgresError.constraint_name) {
+      return postgresError;
+    }
+
+    current = postgresError.cause;
+  }
+
+  return (error as PostgresErrorLike) ?? new Error("Unknown PostgreSQL error.");
 }
