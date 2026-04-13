@@ -378,14 +378,15 @@ Returns:
 1. A source sync or manual capture event occurs.
 2. The Capture Layer stores the input as `CaptureEntry`.
 3. One or more `RawAsset` records are created.
-4. A normalization job is enqueued.
+4. V1 immediately triggers normalization for each new `RawAsset` after capture persistence.
 
 ### Normalization Flow
 
 1. A normalization job loads one `RawAsset`.
 2. Extraction and metadata cleanup run.
 3. The result is stored as one `Item`.
-4. A knowledge processing job is enqueued.
+4. The `RawAsset` and `CaptureEntry` statuses are advanced for the first slice.
+5. A later issue will enqueue the knowledge processing job.
 
 ### Knowledge Flow
 

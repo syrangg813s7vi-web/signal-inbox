@@ -9,6 +9,7 @@ import {
   captureEntries,
   createDbFromClient,
   createSqlClient,
+  items,
   rawAssets,
   runMigrations,
   sourceSyncState,
@@ -101,6 +102,7 @@ async function runSmokeTest(
   assert.equal(firstResult.fetchedCount, 2);
   assert.equal(firstResult.persistedCount, 2);
   assert.equal(firstResult.skippedCount, 0);
+  assert.equal(firstResult.normalizedItemIds.length, 2);
 
   feedState.xml = buildRssFeed([
     {
@@ -140,6 +142,7 @@ async function runSmokeTest(
       .from(sourceSyncState)
       .where(eq(sourceSyncState.sourceId, createdSource.id));
     const rawAssetsAfterFirstRun = await db.select().from(rawAssets);
+    const itemsAfterFirstRun = await db.select().from(items);
 
     assert.ok(syncStateAfterFirstRun);
     assert.ok(syncStateAfterFirstRun.lastSyncedAt);
@@ -147,6 +150,13 @@ async function runSmokeTest(
     assert.equal(syncStateAfterFirstRun.lastErrorAt, null);
     assert.equal(syncStateAfterFirstRun.lastErrorMessage, null);
     assert.equal(rawAssetsAfterFirstRun.length, 3);
+    assert.equal(itemsAfterFirstRun.length, 3);
+    assert.equal(rawAssetsAfterFirstRun.every((rawAsset) => rawAsset.status === "normalized"), true);
+    assert.equal(itemsAfterFirstRun.every((item) => item.status === "new"), true);
+    assert.equal(
+      itemsAfterFirstRun.some((item) => item.contentText?.includes("First article description")),
+      true,
+    );
   } finally {
     await dbClient.end();
   }
@@ -162,6 +172,7 @@ async function runSmokeTest(
   assert.equal(duplicateRun.fetchedCount, 2);
   assert.equal(duplicateRun.persistedCount, 0);
   assert.equal(duplicateRun.skippedCount, 2);
+  assert.equal(duplicateRun.normalizedItemIds.length, 0);
 
   feedState.xml = buildRssFeed([
     {
@@ -191,6 +202,7 @@ async function runSmokeTest(
   assert.equal(incrementalRun.fetchedCount, 2);
   assert.equal(incrementalRun.persistedCount, 1);
   assert.equal(incrementalRun.skippedCount, 1);
+  assert.equal(incrementalRun.normalizedItemIds.length, 1);
 
   feedState.mode = "failure";
 
@@ -218,6 +230,7 @@ async function runSmokeTest(
       .where(eq(captureEntries.sourceId, createdSource.id))
       .orderBy(desc(captureEntries.createdAt));
     const rawAssetRows = await db.select().from(rawAssets);
+    const itemRows = await db.select().from(items);
     const [finalSyncState] = await db
       .select()
       .from(sourceSyncState)
@@ -226,8 +239,9 @@ async function runSmokeTest(
 
     assert.equal(captureEntryRows.length, 5);
     assert.equal(captureEntryRows[0]?.status, "failed");
-    assert.equal(captureEntryRows[1]?.status, "captured");
+    assert.equal(captureEntryRows[1]?.status, "normalized");
     assert.equal(rawAssetRows.length, 4);
+    assert.equal(itemRows.length, 4);
     assert.ok(finalSyncState?.lastErrorAt);
     assert.match(finalSyncState?.lastErrorMessage ?? "", /status 500/);
     assert.equal(finalSource?.status, "error");

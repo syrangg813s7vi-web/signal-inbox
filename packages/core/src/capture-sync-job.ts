@@ -8,6 +8,8 @@ import {
 } from "@signal-inbox/capture";
 import { fetchRssFeed } from "@signal-inbox/connectors";
 
+import { runNormalizeRawAssetJob } from "./normalize-raw-asset-job";
+
 export interface RunRssSourceSyncJobInput {
   sourceId: string;
   triggerRef?: string | null;
@@ -68,16 +70,31 @@ export async function runRssSourceSyncJob(input: RunRssSourceSyncJobInput) {
       input.databaseUrl,
     );
 
+    const normalizedItemIds: string[] = [];
+
+    for (const rawAssetId of result.rawAssetIds) {
+      const normalizedResult = await runNormalizeRawAssetJob({
+        databaseUrl: input.databaseUrl,
+        rawAssetId,
+      });
+
+      normalizedItemIds.push(normalizedResult.itemId);
+    }
+
     console.info("source sync succeeded", {
       capture_entry_id: result.captureEntryId,
       job_type: "capture-sync",
+      normalized_item_count: normalizedItemIds.length,
       persisted_count: result.persistedCount,
       raw_asset_count: result.rawAssetIds.length,
       source_id: source.id,
       status: "captured",
     });
 
-    return result;
+    return {
+      ...result,
+      normalizedItemIds,
+    };
   } catch (error) {
     const failure = await failSourceSyncExecution(
       {

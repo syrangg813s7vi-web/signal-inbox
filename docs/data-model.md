@@ -188,6 +188,8 @@ Fields:
 - `created_at`
 - `updated_at`
 
+V1 normalization metadata should retain enough source context for downstream processing, including extraction details and connector identity, without embedding summaries, scores, or ranking output.
+
 Constraints:
 
 - unique by `canonical_url` when present

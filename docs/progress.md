@@ -263,6 +263,8 @@ The first slice is successful if:
 
 - Phase 1 work now includes the first user-visible `Sources` surface for RSS source creation, pause, and reactivation
 - source status visibility should show both configured source state and the initialized sync-state baseline without starting sync execution in the same issue
+- the first `RawAsset -> Item` normalization slice now exists in code for RSS-backed assets
+- capture sync now immediately triggers normalization for newly persisted RSS raw assets in the first V1 orchestration path
 
 ### 2026-04-10
 

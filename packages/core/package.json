@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@signal-inbox/capture": "workspace:*",
-    "@signal-inbox/connectors": "workspace:*"
+    "@signal-inbox/connectors": "workspace:*",
+    "@signal-inbox/normalization": "workspace:*"
   },
   "devDependencies": {
     "@signal-inbox/db": "workspace:*",
