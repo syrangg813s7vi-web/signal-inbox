@@ -189,6 +189,7 @@ Fields:
 - `updated_at`
 
 V1 normalization metadata should retain enough source context for downstream processing, including extraction details and connector identity, without embedding summaries, scores, or ranking output.
+When a normalized `Item` would collide with an existing `canonical_url`, V1 may preserve the conflicting URL in `metadata.canonicalUrlConflict` and leave `canonical_url` null so normalization can still produce a stable shared `Item`.
 
 Constraints:
 

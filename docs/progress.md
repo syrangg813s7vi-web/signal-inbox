@@ -265,6 +265,7 @@ The first slice is successful if:
 - source status visibility should show both configured source state and the initialized sync-state baseline without starting sync execution in the same issue
 - the first `RawAsset -> Item` normalization slice now exists in code for RSS-backed assets
 - capture sync now immediately triggers normalization for newly persisted RSS raw assets in the first V1 orchestration path
+- normalization now preserves capture metadata across both success and failure transitions and handles cross-source `canonical_url` collisions by falling back to `metadata.canonicalUrlConflict`
 
 ### 2026-04-10
 
