@@ -371,10 +371,16 @@ async function finalizeCaptureEntryStatus(
     return;
   }
 
+  const [captureEntryRecord] = await tx
+    .select({ metadata: captureEntries.metadata })
+    .from(captureEntries)
+    .where(eq(captureEntries.id, captureEntryId));
+
   await tx
     .update(captureEntries)
     .set({
       metadata: {
+        ...(captureEntryRecord?.metadata ?? {}),
         normalization: {
           normalizedAt: normalizedAt.toISOString(),
           phase: "completed",

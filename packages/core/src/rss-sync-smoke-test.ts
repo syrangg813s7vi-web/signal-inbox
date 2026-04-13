@@ -18,6 +18,16 @@ import {
 
 import { runRssSourceSyncJob, SourceSyncJobError } from "./capture-sync-job";
 
+interface CaptureEntryMetadata {
+  fetchedCount?: number;
+  normalization?: {
+    phase?: string;
+  };
+  persistedCount?: number;
+  phase?: string;
+  skippedCount?: number;
+}
+
 async function main() {
   const temporaryPostgres = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
   const databaseUrl = temporaryPostgres?.databaseUrl ?? process.env.DATABASE_URL;
@@ -149,6 +159,11 @@ async function runSmokeTest(
     assert.ok(syncStateAfterFirstRun.lastSuccessAt);
     assert.equal(syncStateAfterFirstRun.lastErrorAt, null);
     assert.equal(syncStateAfterFirstRun.lastErrorMessage, null);
+    assert.equal(syncStateAfterFirstRun.cursor, JSON.stringify({
+      latestExternalIds: ["entry-duplicate"],
+      latestPublishedAt: "2026-04-12T10:30:00.000Z",
+      latestUrls: ["https://example.com/articles/duplicate"],
+    }));
     assert.equal(rawAssetsAfterFirstRun.length, 3);
     assert.equal(itemsAfterFirstRun.length, 3);
     assert.equal(rawAssetsAfterFirstRun.every((rawAsset) => rawAsset.status === "normalized"), true);
@@ -157,6 +172,7 @@ async function runSmokeTest(
       itemsAfterFirstRun.some((item) => item.contentText?.includes("First article description")),
       true,
     );
+    assert.equal(syncStateAfterFirstRun.sourceId, createdSource.id);
   } finally {
     await dbClient.end();
   }
@@ -236,10 +252,16 @@ async function runSmokeTest(
       .from(sourceSyncState)
       .where(eq(sourceSyncState.sourceId, createdSource.id));
     const finalSource = await getRssSource(createdSource.id, databaseUrl);
+    const normalizedCaptureMetadata = (captureEntryRows[1]?.metadata ?? {}) as CaptureEntryMetadata;
 
     assert.equal(captureEntryRows.length, 5);
     assert.equal(captureEntryRows[0]?.status, "failed");
     assert.equal(captureEntryRows[1]?.status, "normalized");
+    assert.equal(normalizedCaptureMetadata.phase, "completed");
+    assert.equal(normalizedCaptureMetadata.fetchedCount, 2);
+    assert.equal(normalizedCaptureMetadata.persistedCount, 1);
+    assert.equal(normalizedCaptureMetadata.skippedCount, 1);
+    assert.equal(normalizedCaptureMetadata.normalization?.phase, "completed");
     assert.equal(rawAssetRows.length, 4);
     assert.equal(itemRows.length, 4);
     assert.ok(finalSyncState?.lastErrorAt);
