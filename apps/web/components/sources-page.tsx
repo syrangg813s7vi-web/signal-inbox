@@ -142,6 +142,18 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                     </div>
 
                     <div className="flex items-center gap-3">
+                      {source.status === "active" ? (
+                        <form action={`/sources/${source.id}/sync`} method="post">
+                          <button
+                            disabled={!viewModel.isAvailable}
+                            type="submit"
+                            className="rounded-full bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--panel-strong)] transition enabled:hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Sync now
+                          </button>
+                        </form>
+                      ) : null}
+
                       {source.status === "paused" ? (
                         <form action={`/sources/${source.id}/reactivate`} method="post">
                           <button

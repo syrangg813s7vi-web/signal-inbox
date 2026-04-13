@@ -1,13 +1,13 @@
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 
 import {
+  bootstrapInboxStorageSchema,
   createDbFromClient,
   createSqlClient,
   enrichments,
   itemGroupMembers,
   itemGroups,
   items,
-  runMigrations,
 } from "@signal-inbox/db";
 
 export interface InboxItemViewModel {
@@ -48,6 +48,24 @@ interface InboxRow {
 
 type InboxUnavailableKind = "configuration" | "connection" | "schema" | "unknown";
 
+class InboxStorageBootstrapError extends Error {
+  constructor(cause: unknown) {
+    super("Inbox storage bootstrap failed.", { cause });
+    this.name = "InboxStorageBootstrapError";
+  }
+}
+
+interface PreviewInboxProbeResult {
+  captureEntriesExists: boolean;
+  enrichmentsExists: boolean;
+  itemGroupMembersExists: boolean;
+  itemGroupsExists: boolean;
+  itemsExists: boolean;
+  publicCreate: boolean;
+  publicUsage: boolean;
+  rawAssetsExists: boolean;
+}
+
 const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -82,7 +100,7 @@ export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
     return {
       isAvailable: false,
       items: [],
-      unavailableReason: getUnexpectedUnavailableReason(error),
+      unavailableReason: await getUnexpectedUnavailableReason(error),
     };
   }
 }
@@ -127,7 +145,12 @@ async function withInboxStorageReady<T>(operation: () => Promise<T>): Promise<T>
     return await operation();
   } catch (error) {
     if (getInboxUnavailableKind(error) === "schema" && shouldAttemptPreviewSchemaBootstrap()) {
-      await ensureInboxStorageSchema();
+      try {
+        await ensureInboxStorageSchema();
+      } catch (bootstrapError) {
+        throw new InboxStorageBootstrapError(bootstrapError);
+      }
+
       return operation();
     }
 
@@ -167,6 +190,10 @@ function extractDuplicateOfItemId(metadata: Record<string, unknown>) {
 
 function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {
   for (const candidate of walkErrorChain(error)) {
+    if (candidate.code === "42501") {
+      return "schema";
+    }
+
     if (candidate.code === "ERR_INVALID_URL") {
       return "configuration";
     }
@@ -193,11 +220,47 @@ function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {
 
     const message = candidate.message.toLowerCase();
 
+    if (message.includes("inbox storage bootstrap failed")) {
+      return "schema";
+    }
+
     if (message.includes("database_url must be set")) {
       return "configuration";
     }
 
-    if (message.includes("connect")) {
+    if (
+      message.includes('relation "items" does not exist') ||
+      message.includes('relation "enrichments" does not exist') ||
+      message.includes('relation "item_group_members" does not exist') ||
+      message.includes('relation "item_groups" does not exist') ||
+      message.includes('relation "capture_entries" does not exist') ||
+      message.includes('relation "raw_assets" does not exist') ||
+      message.includes('type "capture_entry_status" does not exist') ||
+      message.includes('type "capture_entry_type" does not exist') ||
+      message.includes('type "item_group_type" does not exist') ||
+      message.includes('type "item_status" does not exist') ||
+      message.includes('type "item_type" does not exist') ||
+      message.includes('type "raw_asset_status" does not exist') ||
+      message.includes('type "raw_asset_type" does not exist')
+    ) {
+      return "schema";
+    }
+
+    if (
+      message.includes("connect") ||
+      message.includes("connection terminated") ||
+      message.includes("connection refused") ||
+      message.includes("timed out") ||
+      message.includes("timeout") ||
+      message.includes("enotfound") ||
+      message.includes("econnrefused") ||
+      message.includes("etimedout") ||
+      message.includes("certificate") ||
+      message.includes("tls") ||
+      message.includes("server closed the connection unexpectedly") ||
+      message.includes("password authentication failed") ||
+      message.includes("no pg_hba.conf entry")
+    ) {
       return "connection";
     }
   }
@@ -221,8 +284,70 @@ function getUnavailableReason(kind: InboxUnavailableKind) {
   return "Inbox data is unavailable in this environment.";
 }
 
-function getUnexpectedUnavailableReason(error: unknown) {
+function shouldAttemptPreviewSchemaBootstrap() {
+  return process.env.VERCEL_ENV === "preview";
+}
+
+async function ensureInboxStorageSchema() {
+  if (!inboxStorageBootstrapPromise) {
+    inboxStorageBootstrapPromise = bootstrapInboxStorageSchema().finally(() => {
+      inboxStorageBootstrapPromise = null;
+    });
+  }
+
+  await inboxStorageBootstrapPromise;
+}
+
+async function loadPreviewInboxProbeResult(): Promise<PreviewInboxProbeResult | null> {
+  if (!shouldAttemptPreviewSchemaBootstrap()) {
+    return null;
+  }
+
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    return null;
+  }
+
+  const client = createSqlClient(databaseUrl);
+
+  try {
+    const [probe] = await client<PreviewInboxProbeResult[]>`
+      select
+        has_schema_privilege('public', 'CREATE') as "publicCreate",
+        has_schema_privilege('public', 'USAGE') as "publicUsage",
+        to_regclass('public.capture_entries') is not null as "captureEntriesExists",
+        to_regclass('public.raw_assets') is not null as "rawAssetsExists",
+        to_regclass('public.items') is not null as "itemsExists",
+        to_regclass('public.enrichments') is not null as "enrichmentsExists",
+        to_regclass('public.item_groups') is not null as "itemGroupsExists",
+        to_regclass('public.item_group_members') is not null as "itemGroupMembersExists"
+    `;
+
+    return probe ?? null;
+  } catch {
+    return null;
+  } finally {
+    await client.end();
+  }
+}
+
+function formatPrivilege(value: boolean): string {
+  return value ? "yes" : "no";
+}
+
+function formatPresence(value: boolean): string {
+  return value ? "present" : "missing";
+}
+
+async function getUnexpectedUnavailableReason(error: unknown) {
   if (process.env.VERCEL_ENV === "preview") {
+    const probe = await loadPreviewInboxProbeResult();
+
+    if (probe) {
+      return `Inbox data is temporarily unavailable in this preview environment. Preview probe: public CREATE=${formatPrivilege(probe.publicCreate)}, public USAGE=${formatPrivilege(probe.publicUsage)}, capture_entries=${formatPresence(probe.captureEntriesExists)}, raw_assets=${formatPresence(probe.rawAssetsExists)}, items=${formatPresence(probe.itemsExists)}, enrichments=${formatPresence(probe.enrichmentsExists)}, item_groups=${formatPresence(probe.itemGroupsExists)}, item_group_members=${formatPresence(probe.itemGroupMembersExists)}.`;
+    }
+
     return "Inbox data is temporarily unavailable in this preview environment.";
   }
 
@@ -233,37 +358,55 @@ function getUnexpectedUnavailableReason(error: unknown) {
   return "Inbox data is unavailable because an unexpected server error occurred.";
 }
 
-function shouldAttemptPreviewSchemaBootstrap() {
-  return process.env.VERCEL_ENV === "preview";
-}
-
-async function ensureInboxStorageSchema() {
-  if (!inboxStorageBootstrapPromise) {
-    inboxStorageBootstrapPromise = runMigrations().finally(() => {
-      inboxStorageBootstrapPromise = null;
-    });
-  }
-
-  await inboxStorageBootstrapPromise;
-}
-
-function walkErrorChain(error: unknown) {
+function* walkErrorChain(error: unknown): Generator<{ code?: string; message?: string }> {
+  const queue: unknown[] = [error];
   const seen = new Set<unknown>();
-  const chain: Array<{ code?: string; message?: string }> = [];
-  let current = error;
 
-  while (current && !seen.has(current)) {
-    seen.add(current);
+  while (queue.length > 0) {
+    const current = queue.shift();
 
-    if (typeof current === "object") {
-      const candidate = current as { cause?: unknown; code?: string; message?: string };
-      chain.push(candidate);
-      current = candidate.cause;
+    if (!current || seen.has(current)) {
       continue;
     }
 
-    break;
-  }
+    seen.add(current);
 
-  return chain;
+    if (typeof current === "object") {
+      const candidate = current as {
+        cause?: unknown;
+        code?: string;
+        error?: unknown;
+        errors?: unknown[];
+        message?: string;
+        originalError?: unknown;
+      };
+
+      yield {
+        code: candidate.code,
+        message: candidate.message,
+      };
+
+      if (candidate.cause) {
+        queue.push(candidate.cause);
+      }
+
+      if (candidate.originalError) {
+        queue.push(candidate.originalError);
+      }
+
+      if (candidate.error) {
+        queue.push(candidate.error);
+      }
+
+      if (Array.isArray(candidate.errors)) {
+        queue.push(...candidate.errors);
+      }
+
+      continue;
+    }
+
+    if (typeof current === "string") {
+      yield { message: current };
+    }
+  }
 }
