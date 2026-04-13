@@ -267,7 +267,8 @@ The first slice is successful if:
 - capture sync now immediately triggers normalization for newly persisted RSS raw assets in the first V1 orchestration path
 - normalization now preserves capture metadata across both success and failure transitions and handles cross-source `canonical_url` collisions by falling back to `metadata.canonicalUrlConflict`
 - duplicate-only sync runs now finalize their `CaptureEntry` as `normalized` with a skipped-normalization marker instead of remaining in `captured`
-- normalization now retries with canonical URL fallback after a unique-key race so concurrent normalization can still produce a stable `Item`
+- normalization now retries after both canonical URL and same-asset unique-key races so concurrent workers can still converge on one stable `Item`
+- smoke coverage now includes idempotent re-normalization and parallel normalization of the same fresh `RawAsset`
 
 ### 2026-04-10
 
