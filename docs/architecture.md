@@ -379,6 +379,7 @@ Returns:
 2. The Capture Layer stores the input as `CaptureEntry`.
 3. One or more `RawAsset` records are created.
 4. V1 immediately triggers normalization for each new `RawAsset` after capture persistence.
+5. Capture-level failures only reflect fetch and capture persistence problems; downstream normalization or knowledge failures are recorded on their own layer objects without rewriting source sync state as a capture failure.
 
 ### Normalization Flow
 
@@ -395,6 +396,7 @@ Returns:
 3. The Item is updated with persisted enrichment, topic grouping, and debugging metadata for Inbox consumption.
 4. A Note may be created if the item is preservation-worthy.
 5. A knowledge sync job may push the Note to a knowledge sink.
+6. Topic group creation must converge on one stable group per `group_type + tag` even under concurrent processing.
 
 ### Review Flow
 

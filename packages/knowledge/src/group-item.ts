@@ -1,5 +1,3 @@
-import { and, eq } from "drizzle-orm";
-
 import { itemGroupMembers, itemGroups } from "@signal-inbox/db";
 
 import type { ClassifyStepResult, GroupStepResult } from "./types";
@@ -28,30 +26,26 @@ export async function groupItem(
 
   const tag = slugify(topic);
 
-  const [existingGroup] = await tx
-    .select({
+  const [group] = await tx
+    .insert(itemGroups)
+    .values({
+      groupType: "topic",
+      summary: `Items related to ${topic}.`,
+      tag,
+      title: topic,
+    })
+    .onConflictDoUpdate({
+      set: {
+        summary: `Items related to ${topic}.`,
+        title: topic,
+        updatedAt: new Date(),
+      },
+      target: [itemGroups.groupType, itemGroups.tag],
+    })
+    .returning({
       id: itemGroups.id,
       title: itemGroups.title,
-    })
-    .from(itemGroups)
-    .where(and(eq(itemGroups.groupType, "topic"), eq(itemGroups.tag, tag)));
-
-  const group =
-    existingGroup ??
-    (
-      await tx
-        .insert(itemGroups)
-        .values({
-          groupType: "topic",
-          summary: `Items related to ${topic}.`,
-          tag,
-          title: topic,
-        })
-        .returning({
-          id: itemGroups.id,
-          title: itemGroups.title,
-        })
-    )[0];
+    });
 
   if (!group) {
     return {

@@ -8,6 +8,7 @@ import {
 export interface RunProcessItemJobInput {
   databaseUrl?: string;
   itemId: string;
+  processItemRunner?: typeof processItem;
 }
 
 export class ProcessItemJobError extends Error {
@@ -23,13 +24,15 @@ export class ProcessItemJobError extends Error {
 export { ItemNotFoundError, ItemProcessingValidationError };
 
 export async function runProcessItemJob(input: RunProcessItemJobInput) {
+  const processItemRunner = input.processItemRunner ?? processItem;
+
   console.info("knowledge processing started", {
     item_id: input.itemId,
     job_type: "process-item",
   });
 
   try {
-    const result = await processItem(
+    const result = await processItemRunner(
       {
         itemId: input.itemId,
       },

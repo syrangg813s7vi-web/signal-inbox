@@ -20,7 +20,12 @@ import {
 } from "@signal-inbox/db";
 
 import { runNormalizeRawAssetJob } from "./normalize-raw-asset-job";
-import { runRssSourceSyncJob, SourceSyncJobError } from "./capture-sync-job";
+import {
+  runRssSourceSyncJob,
+  SourceSyncJobError,
+  SourceSyncPostProcessingError,
+} from "./capture-sync-job";
+import { ProcessItemJobError, runProcessItemJob } from "./process-item-job";
 
 interface CaptureEntryMetadata {
   fetchedCount?: number;
@@ -342,6 +347,85 @@ async function runSmokeTest(
 
   feedState.xml = buildRssFeed([
     {
+      description: "Knowledge failure article description",
+      guid: "entry-processing-failure",
+      link: "https://example.com/articles/processing-failure",
+      pubDate: "Sat, 12 Apr 2026 10:45:00 GMT",
+      title: "Knowledge failure article",
+    },
+  ]);
+
+  await assert.rejects(
+    () =>
+      runRssSourceSyncJob({
+        databaseUrl,
+        normalizeRawAssetJobRunner: (jobInput) =>
+          runNormalizeRawAssetJob({
+            ...jobInput,
+            processItemJobRunner: (processJobInput) =>
+              runProcessItemJob({
+                ...processJobInput,
+                processItemRunner: async ({ itemId }) => {
+                  throw new ProcessItemJobError(`Forced knowledge failure for item ${itemId}.`);
+                },
+              }),
+          }),
+        sourceId: createdSource.id,
+        triggerRef: `smoke-processing-failure-${randomUUID()}`,
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof SourceSyncPostProcessingError);
+      assert.match(error.message, /Post-capture processing failed/);
+      return true;
+    },
+  );
+
+  dbClient = createSqlClient(databaseUrl);
+  db = createDbFromClient(dbClient);
+
+  try {
+    const captureEntryRowsAfterProcessingFailure = await db
+      .select()
+      .from(captureEntries)
+      .where(eq(captureEntries.sourceId, createdSource.id))
+      .orderBy(desc(captureEntries.createdAt));
+    const rawAssetRowsAfterProcessingFailure = await db.select().from(rawAssets);
+    const itemRowsAfterProcessingFailure = await db.select().from(items);
+    const [syncStateAfterProcessingFailure] = await db
+      .select()
+      .from(sourceSyncState)
+      .where(eq(sourceSyncState.sourceId, createdSource.id));
+    const sourceAfterProcessingFailure = await getRssSource(createdSource.id, databaseUrl);
+    const failedItem = itemRowsAfterProcessingFailure.find(
+      (item) => item.canonicalUrl === "https://example.com/articles/processing-failure",
+    );
+    const failedItemMetadata = (failedItem?.metadata ?? {}) as ItemMetadata;
+    const failedRawAsset = rawAssetRowsAfterProcessingFailure.find(
+      (rawAsset) => rawAsset.url === "https://example.com/articles/processing-failure",
+    );
+    const failedCaptureEntryMetadata = (captureEntryRowsAfterProcessingFailure[0]?.metadata ??
+      {}) as CaptureEntryMetadata;
+
+    assert.equal(captureEntryRowsAfterProcessingFailure[0]?.status, "normalized");
+    assert.equal(failedCaptureEntryMetadata.phase, "completed");
+    assert.equal(failedCaptureEntryMetadata.normalization?.phase, "completed");
+    assert.equal(failedRawAsset?.status, "normalized");
+    assert.equal(failedItem?.status, "new");
+    assert.equal(failedItemMetadata.knowledgeProcessing?.status, "failed");
+    assert.match(
+      failedItemMetadata.knowledgeProcessing?.lastError ?? "",
+      /Forced knowledge failure/,
+    );
+    assert.ok(syncStateAfterProcessingFailure?.lastSuccessAt);
+    assert.equal(syncStateAfterProcessingFailure?.lastErrorAt, null);
+    assert.equal(syncStateAfterProcessingFailure?.lastErrorMessage, null);
+    assert.equal(sourceAfterProcessingFailure?.status, "active");
+  } finally {
+    await dbClient.end();
+  }
+
+  feedState.xml = buildRssFeed([
+    {
       description: "Third article description",
       guid: "entry-3",
       link: "https://example.com/articles/3",
@@ -443,36 +527,44 @@ async function runSmokeTest(
       .from(sourceSyncState)
       .where(eq(sourceSyncState.sourceId, createdSource.id));
     const finalSource = await getRssSource(createdSource.id, databaseUrl);
-    const normalizedCaptureMetadata = (captureEntryRows[1]?.metadata ?? {}) as CaptureEntryMetadata;
+    const fetchFailureCaptureMetadata = (captureEntryRows[0]?.metadata ?? {}) as CaptureEntryMetadata & {
+      connectorType?: string;
+      message?: string;
+    };
+    const completedNormalizationCaptureMetadata = captureEntryRows
+      .map((captureEntry) => (captureEntry.metadata ?? {}) as CaptureEntryMetadata)
+      .find(
+        (metadata) =>
+          metadata.phase === "completed" &&
+          metadata.fetchedCount === 2 &&
+          metadata.persistedCount === 1 &&
+          metadata.skippedCount === 1 &&
+          metadata.normalization?.phase === "completed",
+      );
+    const skippedNormalizationCaptureMetadata = captureEntryRows
+      .map((captureEntry) => (captureEntry.metadata ?? {}) as CaptureEntryMetadata)
+      .find(
+        (metadata) =>
+          metadata.normalization?.phase === "skipped" &&
+          metadata.normalization?.reason === "no_new_raw_assets",
+      );
 
-    assert.equal(captureEntryRows.length, 6);
+    assert.equal(captureEntryRows.length, 7);
     assert.equal(captureEntryRows[0]?.status, "failed");
-    assert.equal(captureEntryRows[1]?.status, "normalized");
-    assert.equal(captureEntryRows[2]?.status, "normalized");
+    assert.equal(fetchFailureCaptureMetadata.connectorType, "rss");
     assert.equal(
-      ((captureEntryRows[0]?.metadata ?? {}) as CaptureEntryMetadata & { connectorType?: string })
-        .connectorType,
-      "rss",
-    );
-    assert.equal(
-      ((captureEntryRows[0]?.metadata ?? {}) as CaptureEntryMetadata & { message?: string }).message,
+      fetchFailureCaptureMetadata.message,
       `RSS fetch failed for source ${createdSource.id} with status 500.`,
     );
-    assert.equal(normalizedCaptureMetadata.phase, "completed");
-    assert.equal(normalizedCaptureMetadata.fetchedCount, 2);
-    assert.equal(normalizedCaptureMetadata.persistedCount, 1);
-    assert.equal(normalizedCaptureMetadata.skippedCount, 1);
-    assert.equal(normalizedCaptureMetadata.normalization?.phase, "completed");
-    assert.equal(
-      ((captureEntryRows[2]?.metadata ?? {}) as CaptureEntryMetadata).normalization?.phase,
-      "skipped",
-    );
-    assert.equal(
-      ((captureEntryRows[2]?.metadata ?? {}) as CaptureEntryMetadata).normalization?.reason,
-      "no_new_raw_assets",
-    );
-    assert.equal(rawAssetRows.length, 6);
-    assert.equal(itemRows.length, 6);
+    assert.equal(completedNormalizationCaptureMetadata?.phase, "completed");
+    assert.equal(completedNormalizationCaptureMetadata?.fetchedCount, 2);
+    assert.equal(completedNormalizationCaptureMetadata?.persistedCount, 1);
+    assert.equal(completedNormalizationCaptureMetadata?.skippedCount, 1);
+    assert.equal(completedNormalizationCaptureMetadata?.normalization?.phase, "completed");
+    assert.equal(skippedNormalizationCaptureMetadata?.normalization?.phase, "skipped");
+    assert.equal(skippedNormalizationCaptureMetadata?.normalization?.reason, "no_new_raw_assets");
+    assert.equal(rawAssetRows.length, 7);
+    assert.equal(itemRows.length, 7);
     assert.equal(enrichmentRows.length, 6);
     assert.equal(itemGroupRows.length, 2);
     assert.equal(itemGroupMemberRows.length, 6);

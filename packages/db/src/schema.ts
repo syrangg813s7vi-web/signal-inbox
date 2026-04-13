@@ -209,6 +209,7 @@ export const itemGroups = pgTable(
   (table) => [
     index("item_groups_group_type_idx").on(table.groupType),
     index("item_groups_tag_idx").on(table.tag),
+    uniqueIndex("item_groups_group_type_tag_key").on(table.groupType, table.tag),
   ],
 );
 

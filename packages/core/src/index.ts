@@ -34,5 +34,6 @@ export {
 export {
   runRssSourceSyncJob,
   SourceSyncJobError,
+  SourceSyncPostProcessingError,
   type RunRssSourceSyncJobInput,
 } from "./capture-sync-job";

@@ -260,6 +260,10 @@ V1 group type:
 
 - `topic`
 
+Constraints:
+
+- one stable group per `group_type + tag` in V1
+
 ### item_group_members
 
 Purpose:

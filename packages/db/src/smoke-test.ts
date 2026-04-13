@@ -163,6 +163,18 @@ async function runSmokeTest(databaseUrl: string) {
       "23503",
       "raw_assets_capture_entry_id_capture_entries_id_fk",
     );
+
+    await expectPostgresError(
+      () =>
+        db.insert(itemGroups).values({
+          groupType: "topic",
+          summary: "Duplicate AI topic",
+          tag: "ai",
+          title: "AI topic duplicate",
+        }),
+      "23505",
+      "item_groups_group_type_tag_key",
+    );
   } finally {
     await client.end();
   }
