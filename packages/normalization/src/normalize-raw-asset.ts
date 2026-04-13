@@ -72,6 +72,7 @@ type DatabaseTransaction = Parameters<
 >[0];
 
 const CANONICAL_URL_CONSTRAINT = "items_canonical_url_key";
+const RAW_ASSET_ID_CONSTRAINT = "items_raw_asset_id_key";
 
 export class RawAssetNotFoundError extends Error {
   constructor(message: string) {
@@ -106,7 +107,7 @@ export async function normalizeRawAsset(
         forceCanonicalUrlFallback: false,
       });
     } catch (error) {
-      if (!isConstraintError(error, CANONICAL_URL_CONSTRAINT)) {
+      if (!isRetriableNormalizationConstraintError(error)) {
         throw error;
       }
 
@@ -476,6 +477,13 @@ function isConstraintError(error: unknown, expectedConstraint: string): boolean 
   return (
     postgresError.code === "23505" &&
     (postgresError.constraint_name ?? postgresError.constraint) === expectedConstraint
+  );
+}
+
+function isRetriableNormalizationConstraintError(error: unknown): boolean {
+  return (
+    isConstraintError(error, CANONICAL_URL_CONSTRAINT) ||
+    isConstraintError(error, RAW_ASSET_ID_CONSTRAINT)
   );
 }
 

@@ -16,6 +16,7 @@ import {
   startTemporaryPostgres,
 } from "@signal-inbox/db";
 
+import { runNormalizeRawAssetJob } from "./normalize-raw-asset-job";
 import { runRssSourceSyncJob, SourceSyncJobError } from "./capture-sync-job";
 
 interface CaptureEntryMetadata {
@@ -127,6 +128,14 @@ async function runSmokeTest(
   assert.equal(firstResult.persistedCount, 2);
   assert.equal(firstResult.skippedCount, 0);
   assert.equal(firstResult.normalizedItemIds.length, 2);
+
+  const repeatedNormalizationResult = await runNormalizeRawAssetJob({
+    databaseUrl,
+    rawAssetId: firstResult.rawAssetIds[0]!,
+  });
+
+  assert.equal(repeatedNormalizationResult.rawAssetId, firstResult.rawAssetIds[0]);
+  assert.equal(repeatedNormalizationResult.itemId, firstResult.normalizedItemIds[0]);
 
   feedState.xml = buildRssFeed([
     {
