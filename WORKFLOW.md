@@ -37,6 +37,7 @@ codex:
 
 Resume from the current workspace state.
 Do not restart from scratch.
+Do not repeat completed investigation or validation unless new code changes require it.
 {% else %}
 ## Initial Run
 
@@ -86,51 +87,75 @@ Read these files before substantial work:
 
 Follow the repository conventions in `docs/development-style.md`.
 
+## Default Posture
+
+- Treat this as an unattended orchestration run. Do not ask a human to take routine follow-up actions.
+- Operate end-to-end unless blocked by missing required auth, permissions, or secrets.
+- Use the issue branch workspace only. Do not edit files outside the provided repository copy.
+- Treat Linear state transitions as part of the delivery contract, not optional metadata.
+- Prefer the smallest correct change that satisfies the issue and its validation bar.
+- Keep all work aligned with the documented product and architecture model.
+
+## State Model
+
+- `In Progress`
+  - active implementation, investigation, validation, or rework is happening in the workspace
+- `In Review`
+  - the issue meets acceptance criteria and is ready for human review
+- `Done`
+  - reserved for human-reviewed and accepted work; do not move issues to `Done` from the agent workflow
+
+If work is blocked, keep it in a non-terminal blocked state and explain the blocker clearly.
+
+## Workpad Protocol
+
+Use a single persistent Linear comment as the source of truth for execution.
+
+1. Find an existing comment whose header is exactly `## Codex Workpad`.
+2. If it exists, reuse it. Do not create a second workpad comment.
+3. If it does not exist, create one workpad comment and use it for all progress updates.
+4. Keep the workpad current throughout execution. Do not let completed work remain unchecked.
+5. The workpad must include:
+   - environment stamp as a code fence line: `<host>:<abs-workdir>@<short-sha>`
+   - hierarchical plan
+   - acceptance criteria checklist
+   - validation checklist
+   - notes / reproduction evidence
+   - blockers when present
+6. Do not post separate summary comments when the workpad can be updated instead.
+
 ## Required Workflow
 
 1. Understand the issue and affected docs or modules.
-2. If the issue changes product behavior, architecture, data model, or execution plan, update docs first.
-3. Treat Linear state transitions as part of the handoff, not as optional metadata.
-4. Use `In Progress` only while the issue is actively being implemented or validated in a workspace.
-5. Move work to `In Review` only when the acceptance criteria are met and the branch is ready for human review.
-6. For work that changes or adds a runnable web path, do not move to `In Review` until the site is available through a Vercel preview deployment and the handoff includes the concrete preview URL.
-7. For web-facing work, do not treat green typecheck, build, or deployment checks as sufficient proof of correctness on their own. Validate the affected preview route directly before review handoff.
-8. Do not treat local changes alone as review-ready. The expected review handoff is:
+2. If the issue changes product behavior, architecture, data model, or execution plan, update docs first or alongside the code change.
+3. Start by reconciling the workpad:
+   - check off already-completed items
+   - update the plan to match current scope
+   - ensure acceptance criteria and validation are current
+4. Reproduce first. Capture a concrete current-behavior signal before changing code whenever the issue concerns runtime behavior, a bug, or a user-visible path.
+5. Record the reproduction signal in the workpad notes.
+6. Before code edits, sync with latest `origin/main`.
+   - prefer a non-interactive pull/rebase flow
+   - record the sync result in the workpad notes, including resulting `HEAD` short SHA
+7. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>`.
+8. Keep changes incremental and aligned with current repository terminology.
+9. Do not treat local changes alone as review-ready. The minimum implementation handoff is:
    - branch created
    - focused commit created
    - branch pushed
    - PR prepared or opened for human review
-9. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
-10. Prefer creating a draft PR unless the issue explicitly says the work is ready for a non-draft review handoff.
-11. Treat "branch pushed but no PR created" as an incomplete handoff, not as success.
-12. Include the PR URL in the final handoff summary whenever a PR is created.
-13. If `gh` is authenticated, explicitly run `gh pr create` for the issue branch instead of assuming another system will open the PR later.
-14. If PR creation fails, report the command failure clearly, keep the issue out of review-ready state, and explain the blocker in the final handoff.
-15. Do not mark work as `Done` from the agent workflow. `Done` is reserved for human-reviewed and accepted work.
-16. If the issue is blocked, explain the blocker clearly and leave the work classified as blocked instead of pretending it is complete.
-17. For implementation issues, work on a dedicated branch named `codex/<issue-identifier>` instead of committing directly to `main`.
-18. Keep changes incremental and aligned with current repository terminology.
-19. Validate the affected path before stopping.
-20. If the acceptance criteria are met, stage the intended files and create a focused git commit.
-21. Use Conventional Commits for every commit, in the form `type(scope): summary`.
-22. For implementation work, include a specific scope in the commit subject instead of using an unscoped summary.
-23. Do not use generic imperative-only commit subjects such as `Fix ...` or `Add ...` without the required Conventional Commit prefix.
-24. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
-25. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
-26. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
-27. If a PR already exists for the issue branch, explicitly gather and review PR feedback before moving the issue to `In Review`.
-28. The required PR feedback sweep includes:
-   - top-level PR comments
-   - review summaries and requested-changes states
-   - inline review comments
-   - issue-owner or reviewer comments that describe a blocker, even if they are not formal GitHub review objects
-29. Treat actionable PR feedback as blocking until one of these is true:
-   - code, tests, or docs were updated to address it
-   - an explicit, justified pushback response was posted on the PR thread
-30. Do not ignore a PR comment just because it was posted as a top-level issue comment instead of a structured review. If the comment contains a concrete defect report, failed validation result, blocker, or required follow-up, treat it as actionable feedback.
-31. When a PR exists, the agent must read the current PR comment stream again after each significant push and before any transition to `In Review`.
-32. Do not leave actionable PR comments unresolved while classifying the issue as review-ready.
-33. Summarize:
+10. If the branch is ready for review and GitHub CLI is available, create a PR instead of stopping at branch push alone.
+11. Prefer a draft PR unless the issue explicitly calls for a ready, non-draft review handoff.
+12. If PR creation fails, report the failure clearly, keep the issue out of `In Review`, and record the blocker in the workpad.
+13. Validate the affected path before stopping.
+14. If the acceptance criteria are met, stage the intended files and create a focused git commit.
+15. Use Conventional Commits for every commit in the form `type(scope): summary`.
+16. For implementation work, include a specific scope in the commit subject.
+17. Do not use generic imperative-only commit subjects such as `Fix ...` or `Add ...` without a Conventional Commit prefix.
+18. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
+19. Do not leave completed work only as uncommitted workspace changes unless genuinely blocked.
+20. Before moving to `In Review`, refresh the workpad so plan, acceptance criteria, validation, and blockers reflect reality exactly.
+21. Summarize in the final handoff:
    - what changed
    - what docs changed
    - how the work was validated
@@ -172,6 +197,41 @@ When an issue branch already has a PR, run this protocol before treating the wor
 - Close the loop on actionable PR comments through visible reply evidence, not comment deletion.
 - The agent may not call GitHub APIs that delete PR comments or issue comments authored by a human.
 
+## Validation Rules
+
+- Treat any issue-authored `Validation`, `Test Plan`, or `Testing` section as mandatory acceptance input.
+- Copy those validation requirements into the workpad and execute them before review handoff.
+- Prefer a targeted proof that directly demonstrates the changed behavior.
+- If temporary local proof edits are needed to validate assumptions, revert them before commit and document the proof steps in the workpad.
+
+For web-facing work:
+
+- Do not treat green typecheck, build, or deployment checks as sufficient proof of correctness on their own.
+- `In Review` requires a Vercel preview deployment URL included in the handoff.
+- `In Review` also requires direct preview validation of the affected route or feature.
+- Minimum direct preview validation means:
+  - the affected preview route loads successfully
+  - the route does not fail with runtime or server-render errors
+  - the issue's primary user action path works in the preview environment
+- The handoff must state exactly which preview route and which user action path were validated.
+
+## Blocked-Access Rules
+
+Only stop early for a true blocker:
+
+- missing required auth
+- missing required permissions
+- missing required secrets
+- required external tooling unavailable and no documented fallback exists
+
+Do not classify ordinary implementation problems, local runtime fixes, or PR feedback as external blockers.
+
+If blocked:
+
+- record the blocker in the workpad
+- explain why it blocks acceptance or validation
+- keep the issue out of `In Review`
+
 ## Project-Specific Constraints
 
 - Keep Home minimal and result-first.
@@ -196,31 +256,7 @@ When an issue branch already has a PR, run this protocol before treating the wor
 - Treat review generation and reminder selection as part of the Review Layer.
 - Do not bypass the shared `Item` model.
 - Do not mix connector logic, processor logic, delivery logic, and UI logic in the same place.
-- Normal implementation handoff is:
-  - branch
-  - commit
-  - push
-  - PR
-  - human review
-- Use a draft PR by default for implementation handoff unless the task explicitly calls for a ready PR.
 - A branch without a PR is not a complete human-review handoff.
-- If `gh auth status` succeeds, the agent is expected to create the PR directly.
-- If `gh pr create` fails, the agent must report that failure and keep the issue out of `In Review`.
-- Recommended Linear flow is:
-  - `In Progress`
-  - `In Review`
-  - `Done`
-- Use `In Review` only for work that is already ready for human inspection and has a reviewable PR URL.
-- For web-facing changes, `In Review` also requires a Vercel preview deployment URL included in the handoff.
-- For web-facing changes, `In Review` also requires direct preview validation of the affected route or feature, not only passing checks.
-- If the issue branch already has a PR, `In Review` also requires that all actionable PR feedback has been addressed or explicitly answered with justified pushback.
-- Do not treat "no formal review objects" as equivalent to "no review feedback" when top-level PR comments contain blockers or required validation gaps.
-- Minimum direct preview validation means:
-  - the affected preview route loads successfully
-  - the route does not fail with runtime or server-render errors
-  - the issue's primary user action path works in the preview environment
-- The handoff must state exactly which preview route and which user action path were validated.
-- Leave blocked work in a non-terminal blocked state instead of moving it forward prematurely.
 - Direct commits to `main` should be reserved for explicitly requested repository maintenance or documentation-only exceptions.
 - Before stopping, classify the issue as exactly one of:
   - `blocked`
