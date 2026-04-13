@@ -118,12 +118,19 @@ Follow the repository conventions in `docs/development-style.md`.
 24. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
 25. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
 26. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
-27. If a PR already exists for the issue branch, review all actionable PR feedback before moving the issue to `In Review`.
-28. Treat actionable PR feedback as blocking until one of these is true:
+27. If a PR already exists for the issue branch, explicitly gather and review PR feedback before moving the issue to `In Review`.
+28. The required PR feedback sweep includes:
+   - top-level PR comments
+   - review summaries and requested-changes states
+   - inline review comments
+   - issue-owner or reviewer comments that describe a blocker, even if they are not formal GitHub review objects
+29. Treat actionable PR feedback as blocking until one of these is true:
    - code, tests, or docs were updated to address it
    - an explicit, justified pushback response was posted on the PR thread
-29. Do not leave actionable PR comments unresolved while classifying the issue as review-ready.
-30. Summarize:
+30. Do not ignore a PR comment just because it was posted as a top-level issue comment instead of a structured review. If the comment contains a concrete defect report, failed validation result, blocker, or required follow-up, treat it as actionable feedback.
+31. When a PR exists, the agent must read the current PR comment stream again after each significant push and before any transition to `In Review`.
+32. Do not leave actionable PR comments unresolved while classifying the issue as review-ready.
+33. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
@@ -135,6 +142,24 @@ Follow the repository conventions in `docs/development-style.md`.
    - the PR URL if available
    - what Linear state the issue should move to next
    - any blockers or follow-up risks
+
+## PR Feedback Sweep Protocol
+
+When an issue branch already has a PR, run this protocol before treating the work as review-ready:
+
+1. Identify the PR for the current branch.
+2. Gather feedback from all PR channels:
+   - top-level PR comments
+   - review summaries and requested-changes states
+   - inline review comments
+   - issue-owner or reviewer comments that describe a blocker, failed validation result, defect, or required follow-up
+3. Treat every actionable PR comment as blocking until one of these is true:
+   - code, tests, docs, or validation were updated to address it
+   - an explicit, justified pushback reply was posted on the PR thread
+4. Do not treat "no formal review objects" as equivalent to "no review feedback" when top-level PR comments contain blockers or required validation gaps.
+5. After each significant push on a PR branch, re-read the PR comment stream before deciding the issue is ready for `In Review`.
+6. Before any transition to `In Review`, confirm there are no outstanding actionable PR comments.
+7. If actionable PR comments remain, keep the issue in `In Progress` and continue the implementation or validation loop.
 
 ## Project-Specific Constraints
 
@@ -178,6 +203,7 @@ Follow the repository conventions in `docs/development-style.md`.
 - For web-facing changes, `In Review` also requires a Vercel preview deployment URL included in the handoff.
 - For web-facing changes, `In Review` also requires direct preview validation of the affected route or feature, not only passing checks.
 - If the issue branch already has a PR, `In Review` also requires that all actionable PR feedback has been addressed or explicitly answered with justified pushback.
+- Do not treat "no formal review objects" as equivalent to "no review feedback" when top-level PR comments contain blockers or required validation gaps.
 - Minimum direct preview validation means:
   - the affected preview route loads successfully
   - the route does not fail with runtime or server-render errors
