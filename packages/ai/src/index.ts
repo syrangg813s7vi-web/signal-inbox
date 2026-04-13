@@ -16,6 +16,22 @@ interface KnowledgeEnrichmentResponseApiShape {
   }>;
 }
 
+interface KnowledgeEnrichmentChatCompletionApiShape {
+  choices?: Array<{
+    message?: {
+      content?:
+        | string
+        | Array<{
+            text?: string;
+            type?: string;
+          }>;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+}
+
 export interface KnowledgeEnrichmentConfig {
   maxOutputTokens: number;
   model: string;
@@ -139,6 +155,28 @@ const KNOWLEDGE_ENRICHMENT_OUTPUT_SCHEMA = {
   type: "object",
 } as const;
 
+const KNOWLEDGE_ENRICHMENT_OUTPUT_TEMPLATE = JSON.stringify(
+  {
+    classification: {
+      label: "string",
+      topic: "string|null",
+    },
+    importance_score: 0.42,
+    key_points: ["string", "string", "string"],
+    note_draft: "string|null",
+    novelty_score: 0.37,
+    preserve_recommendation: "keep|discard|review",
+    summary: {
+      long: "string|null",
+      short: "string",
+    },
+    tags: ["string"],
+    why_it_matters: "string",
+  },
+  null,
+  2,
+);
+
 export class KnowledgeEnrichmentConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -244,6 +282,7 @@ function buildKnowledgeEnrichmentPrompts(input: {
       "The key_points array must contain 3 to 5 specific takeaways.",
       "Scores must be numbers between 0 and 1.",
       "Use preserve_recommendation=keep only when the item is worth preserving into Knowledge.",
+      `Return this exact JSON shape: ${KNOWLEDGE_ENRICHMENT_OUTPUT_TEMPLATE}`,
     ].join("\n"),
     user: JSON.stringify(
       {
@@ -331,6 +370,38 @@ function extractOutputText(response: KnowledgeEnrichmentResponseApiShape) {
   return fallbackText ?? null;
 }
 
+function extractChatCompletionText(response: KnowledgeEnrichmentChatCompletionApiShape) {
+  const messageContent = response.choices?.[0]?.message?.content;
+
+  if (typeof messageContent === "string" && messageContent.trim()) {
+    return messageContent;
+  }
+
+  if (Array.isArray(messageContent)) {
+    return (
+      messageContent
+        .map((entry) => (entry.type === "output_text" || entry.type === "text" ? entry.text : null))
+        .find((entry): entry is string => typeof entry === "string" && entry.trim().length > 0) ?? null
+    );
+  }
+
+  return null;
+}
+
+async function readJsonBody(response: Response) {
+  const responseText = await response.text();
+
+  if (!responseText.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(responseText) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 function parseKnowledgeEnrichmentOutput(value: unknown): KnowledgeEnrichmentOutput {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new KnowledgeEnrichmentOutputError("Knowledge enrichment output must be an object.");
@@ -391,15 +462,50 @@ export function validateKnowledgeEnrichmentOutput(value: unknown): KnowledgeEnri
   return parseKnowledgeEnrichmentOutput(value);
 }
 
+function buildResponseFormats(baseUrl: URL) {
+  const jsonSchemaFormat = {
+    responseFormat: {
+      json_schema: {
+        name: "knowledge_enrichment",
+        schema: KNOWLEDGE_ENRICHMENT_OUTPUT_SCHEMA,
+        strict: true,
+      },
+      type: "json_schema",
+    },
+    type: "json_schema" as const,
+  };
+  const jsonObjectFormat = {
+    responseFormat: {
+      type: "json_object",
+    },
+    type: "json_object" as const,
+  };
+
+  return baseUrl.hostname === "api.openai.com"
+    ? [jsonSchemaFormat, jsonObjectFormat]
+    : [jsonObjectFormat, jsonSchemaFormat];
+}
+
+function buildProviderSpecificRequestFields(baseUrl: URL) {
+  return baseUrl.hostname === "api.openai.com"
+    ? {}
+    : {
+        thinking: {
+          type: "disabled",
+        },
+      };
+}
+
 async function runOpenAiKnowledgeEnrichment(input: {
   config: KnowledgeEnrichmentConfig;
   item: KnowledgeEnrichmentModelInput;
 }): Promise<KnowledgeEnrichmentResult> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  const apiKey = process.env.KNOWLEDGE_ENRICHMENT_API_KEY?.trim();
+  const baseUrl = resolveOpenAiBaseUrl(process.env.KNOWLEDGE_ENRICHMENT_BASE_URL);
 
   if (!apiKey) {
     throw new KnowledgeEnrichmentConfigurationError(
-      "OPENAI_API_KEY must be set for model-backed knowledge enrichment.",
+      "KNOWLEDGE_ENRICHMENT_API_KEY must be set for model-backed knowledge enrichment.",
     );
   }
 
@@ -407,6 +513,8 @@ async function runOpenAiKnowledgeEnrichment(input: {
     item: input.item,
     promptVersion: input.config.promptVersion,
   });
+  const responseFormats = buildResponseFormats(baseUrl);
+  const providerSpecificRequestFields = buildProviderSpecificRequestFields(baseUrl);
 
   let lastError: unknown = null;
 
@@ -418,59 +526,70 @@ async function runOpenAiKnowledgeEnrichment(input: {
         : setTimeout(() => controller.abort(), input.config.timeoutMs);
 
     try {
-      const response = await fetch("https://api.openai.com/v1/responses", {
-        body: JSON.stringify({
-          input: [
-            {
-              content: [{ text: prompts.system, type: "input_text" }],
-              role: "system",
-            },
-            {
-              content: [{ text: prompts.user, type: "input_text" }],
-              role: "user",
-            },
-          ],
-          max_output_tokens: input.config.maxOutputTokens,
-          model: input.config.model,
-          temperature: input.config.temperature,
-          text: {
-            format: {
-              name: "knowledge_enrichment",
-              schema: KNOWLEDGE_ENRICHMENT_OUTPUT_SCHEMA,
-              strict: true,
-              type: "json_schema",
-            },
+      for (const format of responseFormats) {
+        const response = await fetch(new URL("chat/completions", baseUrl), {
+          body: JSON.stringify({
+            max_tokens: input.config.maxOutputTokens,
+            messages: [
+              {
+                content: prompts.system,
+                role: "system",
+              },
+              {
+                content: prompts.user,
+                role: "user",
+              },
+            ],
+            model: input.config.model,
+            response_format: format.responseFormat,
+            temperature: input.config.temperature,
+            ...providerSpecificRequestFields,
+          }),
+          headers: {
+            authorization: `Bearer ${apiKey}`,
+            "content-type": "application/json",
           },
-        }),
-        headers: {
-          "authorization": `Bearer ${apiKey}`,
-          "content-type": "application/json",
-        },
-        method: "POST",
-        signal: controller.signal,
-      });
-      const responseJson = (await response.json()) as KnowledgeEnrichmentResponseApiShape;
+          method: "POST",
+          signal: controller.signal,
+        });
+        const responseJson = (await readJsonBody(response)) as KnowledgeEnrichmentChatCompletionApiShape | null;
 
-      if (!response.ok) {
-        throw new Error(
-          responseJson.error?.message
-            ? `OpenAI knowledge enrichment failed: ${responseJson.error.message}`
-            : `OpenAI knowledge enrichment failed with status ${response.status}.`,
-        );
+        if (!response.ok) {
+          const errorMessage = responseJson?.error?.message;
+          const error = new Error(
+            errorMessage
+              ? `OpenAI-compatible knowledge enrichment failed: ${errorMessage}`
+              : `OpenAI-compatible knowledge enrichment failed with status ${response.status}.`,
+          );
+
+          lastError = error;
+          continue;
+        }
+
+        const outputText = responseJson ? extractChatCompletionText(responseJson) : null;
+
+        if (!outputText) {
+          lastError = new KnowledgeEnrichmentOutputError(
+            "OpenAI-compatible knowledge enrichment returned no structured output text.",
+          );
+          continue;
+        }
+
+        try {
+          return {
+            config: input.config,
+            output: validateKnowledgeEnrichmentOutput(JSON.parse(outputText) as unknown),
+          };
+        } catch (error) {
+          lastError = error;
+
+          if (format.type === "json_schema") {
+            continue;
+          }
+
+          throw error;
+        }
       }
-
-      const outputText = extractOutputText(responseJson);
-
-      if (!outputText) {
-        throw new KnowledgeEnrichmentOutputError(
-          "OpenAI knowledge enrichment returned no structured output text.",
-        );
-      }
-
-      return {
-        config: input.config,
-        output: validateKnowledgeEnrichmentOutput(JSON.parse(outputText) as unknown),
-      };
     } catch (error) {
       lastError = error;
 
@@ -489,6 +608,26 @@ async function runOpenAiKnowledgeEnrichment(input: {
   throw lastError instanceof Error
     ? lastError
     : new Error("OpenAI knowledge enrichment failed.");
+}
+
+function resolveOpenAiBaseUrl(value: string | undefined) {
+  if (!value?.trim()) {
+    return new URL("https://api.openai.com/v1/");
+  }
+
+  try {
+    const parsed = new URL(value);
+
+    if (!parsed.pathname.endsWith("/")) {
+      parsed.pathname = `${parsed.pathname}/`;
+    }
+
+    return parsed;
+  } catch {
+    throw new KnowledgeEnrichmentConfigurationError(
+      `KNOWLEDGE_ENRICHMENT_BASE_URL ${value} is not a valid absolute URL.`,
+    );
+  }
 }
 
 function readInteger(value: string | undefined, fallback: number) {
