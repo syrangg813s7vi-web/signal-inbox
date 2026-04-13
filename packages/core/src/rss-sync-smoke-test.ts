@@ -102,6 +102,35 @@ async function runSmokeTest(
   assert.equal(firstResult.persistedCount, 2);
   assert.equal(firstResult.skippedCount, 0);
 
+  feedState.xml = buildRssFeed([
+    {
+      description: "Duplicate first article description",
+      guid: "entry-duplicate",
+      link: "https://example.com/articles/duplicate",
+      pubDate: "Sat, 12 Apr 2026 10:30:00 GMT",
+      title: "Duplicate article",
+    },
+    {
+      description: "Duplicate first article description",
+      guid: "entry-duplicate",
+      link: "https://example.com/articles/duplicate",
+      pubDate: "Sat, 12 Apr 2026 10:30:00 GMT",
+      title: "Duplicate article",
+    },
+  ]);
+
+  const duplicateWithinBatchRun = await runRssSourceSyncJob(
+    {
+      databaseUrl,
+      sourceId: createdSource.id,
+      triggerRef: `smoke-duplicate-within-batch-${randomUUID()}`,
+    },
+  );
+
+  assert.equal(duplicateWithinBatchRun.fetchedCount, 2);
+  assert.equal(duplicateWithinBatchRun.persistedCount, 1);
+  assert.equal(duplicateWithinBatchRun.skippedCount, 1);
+
   let dbClient = createSqlClient(databaseUrl);
   let db = createDbFromClient(dbClient);
 
@@ -117,7 +146,7 @@ async function runSmokeTest(
     assert.ok(syncStateAfterFirstRun.lastSuccessAt);
     assert.equal(syncStateAfterFirstRun.lastErrorAt, null);
     assert.equal(syncStateAfterFirstRun.lastErrorMessage, null);
-    assert.equal(rawAssetsAfterFirstRun.length, 2);
+    assert.equal(rawAssetsAfterFirstRun.length, 3);
   } finally {
     await dbClient.end();
   }
@@ -195,10 +224,10 @@ async function runSmokeTest(
       .where(eq(sourceSyncState.sourceId, createdSource.id));
     const finalSource = await getRssSource(createdSource.id, databaseUrl);
 
-    assert.equal(captureEntryRows.length, 4);
+    assert.equal(captureEntryRows.length, 5);
     assert.equal(captureEntryRows[0]?.status, "failed");
     assert.equal(captureEntryRows[1]?.status, "captured");
-    assert.equal(rawAssetRows.length, 3);
+    assert.equal(rawAssetRows.length, 4);
     assert.ok(finalSyncState?.lastErrorAt);
     assert.match(finalSyncState?.lastErrorMessage ?? "", /status 500/);
     assert.equal(finalSource?.status, "error");

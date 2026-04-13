@@ -131,7 +131,15 @@ export async function completeRssSourceSyncExecution(
             .where(and(eq(captureEntries.sourceId, input.sourceId), or(...conditions)));
         },
       );
-      const newAssets = input.connectorResult.items.filter((item) => !hasKnownIdentity(existingIdentitySet, item));
+      const syncedIdentitySet = new Set(existingIdentitySet);
+      const newAssets = input.connectorResult.items.filter((item) => {
+        if (hasKnownIdentity(syncedIdentitySet, item)) {
+          return false;
+        }
+
+        rememberKnownIdentity(syncedIdentitySet, item);
+        return true;
+      });
 
       const insertedAssets =
         newAssets.length === 0
@@ -304,6 +312,19 @@ function hasKnownIdentity(
   ].filter(isDefined);
 
   return keys.some((key) => identitySet.has(key));
+}
+
+function rememberKnownIdentity(
+  identitySet: Set<string>,
+  item: RssFeedFetchResult["items"][number],
+) {
+  if (item.externalId) {
+    identitySet.add(buildIdentityKey("externalId", item.externalId));
+  }
+
+  if (item.url) {
+    identitySet.add(buildIdentityKey("url", item.url));
+  }
 }
 
 function buildCursor(items: RssFeedFetchResult["items"]): SourceSyncCursor | null {
