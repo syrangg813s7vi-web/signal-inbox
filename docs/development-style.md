@@ -559,12 +559,25 @@ If validation cannot be completed, note that clearly in the final summary or fol
 
 ## Commit Message Rules
 
+- use Conventional Commits
+- format commit subjects as `type(scope): summary`
+- do not omit the `type`
+- do not omit the `scope` for implementation work unless the change is truly repository-wide
 - use imperative mood
 - keep the summary concise
 - make the scope specific when possible
 - one commit should represent one coherent change
 - do not mix unrelated work into the same commit
 - if a change updates docs because behavior changed, prefer including doc updates in the same commit
+
+Examples:
+
+- `feat(inbox): render processed items from knowledge output`
+- `fix(knowledge): keep processing failures out of source sync state`
+- `docs(workflow): require preview path validation`
+- `refactor(capture): isolate source sync persistence`
+- `test(db): add topic group concurrency coverage`
+- `chore(repo): align pnpm workspace scripts`
 
 ## Suggested Scopes
 

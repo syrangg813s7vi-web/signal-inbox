@@ -112,10 +112,13 @@ Follow the repository conventions in `docs/development-style.md`.
 18. Keep changes incremental and aligned with current repository terminology.
 19. Validate the affected path before stopping.
 20. If the acceptance criteria are met, stage the intended files and create a focused git commit.
-21. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
-22. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
-23. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
-24. Summarize:
+21. Use Conventional Commits for every commit, in the form `type(scope): summary`.
+22. For implementation work, include a specific scope in the commit subject instead of using an unscoped summary.
+23. Do not use generic imperative-only commit subjects such as `Fix ...` or `Add ...` without the required Conventional Commit prefix.
+24. Push the branch and prepare the work for human review instead of treating a local commit as the final handoff.
+25. Do not leave completed work only as uncommitted workspace changes unless you are blocked.
+26. If you do not commit or cannot prepare the branch for review, explain exactly why the task is not ready to hand off.
+27. Summarize:
    - what changed
    - what docs changed
    - how the work was validated
