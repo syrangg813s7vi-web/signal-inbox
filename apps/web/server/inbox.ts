@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 
 import {
   bootstrapInboxStorageSchema,
@@ -108,6 +108,18 @@ export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
 async function loadInboxRows() {
   const client = createSqlClient();
   const db = createDbFromClient(client);
+  const topicGroupTitles = db
+    .select({
+      itemId: itemGroupMembers.itemId,
+      topicGroupTitle: sql<string | null>`min(${itemGroups.title})`.as("topicGroupTitle"),
+    })
+    .from(itemGroupMembers)
+    .innerJoin(
+      itemGroups,
+      and(eq(itemGroups.id, itemGroupMembers.groupId), eq(itemGroups.groupType, "topic")),
+    )
+    .groupBy(itemGroupMembers.itemId)
+    .as("topic_group_titles");
 
   try {
     return await db
@@ -123,15 +135,11 @@ async function loadInboxRows() {
         tags: enrichments.tags,
         title: items.title,
         topic: enrichments.topic,
-        topicGroupTitle: itemGroups.title,
+        topicGroupTitle: topicGroupTitles.topicGroupTitle,
       })
       .from(items)
       .innerJoin(enrichments, eq(enrichments.itemId, items.id))
-      .leftJoin(itemGroupMembers, eq(itemGroupMembers.itemId, items.id))
-      .leftJoin(
-        itemGroups,
-        and(eq(itemGroups.id, itemGroupMembers.groupId), eq(itemGroups.groupType, "topic")),
-      )
+      .leftJoin(topicGroupTitles, eq(topicGroupTitles.itemId, items.id))
       .where(and(eq(items.status, "processed"), isNotNull(enrichments.itemId)))
       .orderBy(desc(enrichments.importanceScore), desc(items.publishedAt), desc(items.createdAt))
       .limit(24);
