@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+
 import { itemGroupMembers, itemGroups } from "@signal-inbox/db";
 
 import type { ClassifyStepResult, GroupStepResult } from "./types";
@@ -15,6 +17,8 @@ export async function groupItem(
   },
 ): Promise<GroupStepResult> {
   const topic = input.classification.topic?.trim();
+
+  await tx.delete(itemGroupMembers).where(eq(itemGroupMembers.itemId, input.itemId));
 
   if (!topic) {
     return {
