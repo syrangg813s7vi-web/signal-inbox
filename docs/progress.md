@@ -24,6 +24,14 @@ Tasks should be small enough to implement and verify, but not so small that they
 
 Phase 1: First Capture-to-Inbox Slice
 
+Current status:
+
+- RSS source creation and sync are implemented
+- normalization into shared `Item` records is implemented
+- the minimal knowledge-processing pipeline is implemented in the documented order
+- Inbox now renders processed Items for first-slice review
+- first-slice validation now includes live preview validation and dedicated Inbox smoke coverage
+
 ## Phase 1 Goal
 
 Run the first complete path:
@@ -174,12 +182,9 @@ Phase 4 is complete when:
 
 ## Current Priorities
 
-1. establish project structure
-2. create database schema for the new model
-3. implement the first working capture path
-4. implement normalization into Item
-5. render the first usable Inbox view
-6. validate the first capture-to-inbox slice
+1. stabilize and review the first capture-to-inbox slice
+2. keep Inbox review quality high as historical data catches up to the latest grouping behavior
+3. prepare the next vertical slice from processed Items into preserved Notes
 
 ## Confirmed Decisions
 
@@ -225,14 +230,9 @@ Phase 4 is complete when:
 
 ## Immediate Next Steps
 
-1. scaffold repository structure
-2. add database schema and migrations for capture and normalization
-3. implement Source CRUD
-4. implement RSS connector
-5. implement CaptureEntry and RawAsset creation
-6. implement normalization into Item
-7. implement the minimal knowledge-processing pipeline
-8. implement basic Inbox page
+1. complete human review of the first Inbox slice
+2. begin Phase 2 note creation and knowledge-sink work
+3. keep the Inbox validation path current as follow-up fixes land
 
 ## Validation Targets For The First Slice
 
