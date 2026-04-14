@@ -31,6 +31,16 @@ Start with:
 - `docs/symphony-setup.md`
 - `docs/issue-definition.md`
 
+## URL Capture Endpoints
+
+Signal Inbox exposes two URL-ingest entrypoints that both feed the same shared capture pipeline:
+
+- Formal integration contract: `POST /api/capture/url`
+  - Send JSON: `{ "url": "https://example.com/article" }`
+- Manual/debug testing only: `GET /api/debug/capture/url?url=https://example.com/article`
+
+The debug `GET` route exists so a human can trigger URL ingest directly from a browser. It is not the primary integration contract.
+
 For Symphony orchestration:
 
 - configure `WORKFLOW.md`

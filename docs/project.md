@@ -261,5 +261,7 @@ Constraints:
 
 - URL capture is a capture-ingress feature, not a separate product domain
 - a submitted URL should still become `CaptureEntry` and `RawAsset`, not bypass the shared capture model
+- `POST /api/capture/url` remains the formal integration endpoint
+- a separate debug `GET` entrypoint may exist for manual/browser testing, but it must reuse the same ingest pipeline
 - fetch and extraction failures must be explicit and inspectable
 - the first version should prefer a request body payload over query-string-only submission so the interface can grow without redesign
