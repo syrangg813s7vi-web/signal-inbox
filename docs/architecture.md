@@ -261,15 +261,18 @@ Inbox surface rule:
 Inbox view-model rule:
 
 - the server layer should expose a page-specific row model that contains the fields needed for layout, such as:
+  - preview seed data
   - title
   - excerpt or summary
+  - destination URL when a lightweight source `Open` action is needed
   - source name
   - source topic
   - classification
   - tags
   - published or moved date label
   - importance and novelty scores when used
-  - destination URL when present
+- presentational components may intentionally hide some of these fields when the active Inbox row design calls for a more minimal reading queue
+- in the current minimal Inbox queue, presentational components should render the preview tile, title, summary, and at most one lightweight source `Open` action
 - presentational components should not derive these semantics directly from low-level persistence records
 
 Debug and review-stage expectation:

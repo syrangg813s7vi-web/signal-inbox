@@ -58,48 +58,21 @@ export function InboxPageLoading() {
           </div>
 
           <div className="px-3 py-3 sm:px-4">
-            <div className="hidden grid-cols-[6px_72px_minmax(0,1fr)_108px] gap-3 rounded-[1.25rem] px-4 py-2 md:grid">
-              <div className="h-3 w-2 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-              <div className="h-3 w-16 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-              <div className="h-3 w-14 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-              <div className="ml-auto h-3 w-24 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-            </div>
-
             <div className="space-y-2">
               {placeholderRows.map((row) => (
                 <article
                   key={row}
-                  className="grid gap-3 rounded-[1.4rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] px-3 py-3 md:grid-cols-[6px_72px_minmax(0,1fr)_108px] md:items-start md:px-4"
+                  className="grid gap-3 rounded-[1.4rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] px-3 py-3 md:grid-cols-[72px_minmax(0,1fr)] md:items-start md:px-4"
                 >
-                  <div className="hidden rounded-full bg-[rgba(31,107,92,0.18)] md:block" />
-
                   <div className="h-[84px] w-[64px] animate-pulse rounded-[1.1rem] border border-[var(--border)] bg-[rgba(31,107,92,0.22)] md:h-[92px] md:w-[72px]" />
 
                   <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <div className="h-5 w-72 max-w-full animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-                      <div className="h-5 w-20 animate-pulse rounded-full bg-[rgba(31,107,92,0.12)]" />
-                    </div>
+                    <div className="h-5 w-72 max-w-full animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
                     <div className="space-y-2">
                       <div className="h-4 w-full animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
                       <div className="h-4 w-5/6 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <div className="h-3 w-24 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-                      <div className="h-3 w-28 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-                      <div className="h-3 w-16 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-                      <div className="h-3 w-20 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-3 md:block md:border-t-0 md:pt-0">
-                    <div className="flex gap-2 md:flex-col md:items-end">
-                      <div className="h-9 w-16 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-                    </div>
-                    <div className="space-y-2 md:text-right">
-                      <div className="ml-auto h-3 w-14 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-                      <div className="ml-auto h-4 w-24 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
-                    </div>
+                    <div className="h-7 w-20 animate-pulse rounded-full bg-[rgba(31,107,92,0.12)]" />
                   </div>
                 </article>
               ))}

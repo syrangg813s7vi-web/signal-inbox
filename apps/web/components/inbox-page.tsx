@@ -79,7 +79,7 @@ export function InboxPage({ viewModel }: InboxPageProps) {
                 Reading Flow
               </p>
               <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">
-                Scan title, excerpt, and metadata in one pass. Open the original only when the row earns it.
+                Scan the preview, title, and short summary in one pass before deciding what deserves deeper reading.
               </p>
             </div>
           </div>
@@ -96,7 +96,7 @@ export function InboxPage({ viewModel }: InboxPageProps) {
                   Compact queue for processed Items.
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                  Reader-style rows over the existing persisted Inbox data path.
+                  Minimal reader-style rows over the existing persisted Inbox data path.
                 </p>
               </div>
 
@@ -113,13 +113,6 @@ export function InboxPage({ viewModel }: InboxPageProps) {
           </div>
 
           <div className="px-3 py-3 sm:px-4">
-            <div className="hidden grid-cols-[6px_72px_minmax(0,1fr)_108px] gap-3 rounded-[1.25rem] px-4 py-2 text-[11px] uppercase tracking-[0.28em] text-[var(--muted)] md:grid">
-              <span />
-              <span>Preview</span>
-              <span>Item</span>
-              <span className="text-right">Actions / Date</span>
-            </div>
-
             {viewModel.items.length === 0 ? (
               <EmptyState isAvailable={viewModel.isAvailable} />
             ) : (
@@ -139,21 +132,9 @@ export function InboxPage({ viewModel }: InboxPageProps) {
 function InboxListRow({ item }: { item: InboxItemViewModel }) {
   const tone = getRowTone(item);
   const previewLabel = getPreviewLabel(item);
-  const sourceLabel = [item.sourceTypeLabel, item.sourceName, item.sourceTopic].filter(Boolean).join(" · ");
-  const metadataTokens = [
-    sourceLabel,
-    item.url ? formatUrlLabel(item.url) : null,
-    item.topicGroupTitle ? `Group ${item.topicGroupTitle}` : null,
-    item.tags[0] ?? null,
-    item.tags[1] ?? null,
-    item.importanceScore !== null ? `Impact ${formatScore(item.importanceScore)}` : null,
-    item.noveltyScore !== null ? `Novelty ${formatScore(item.noveltyScore)}` : null,
-  ].filter((value): value is string => Boolean(value));
 
   return (
-    <article className="group grid gap-3 rounded-[1.4rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] px-3 py-3 transition hover:bg-[rgba(255,250,239,0.95)] md:grid-cols-[6px_72px_minmax(0,1fr)_108px] md:items-start md:px-4">
-      <div className={`hidden rounded-full md:block ${tone.accentClassName}`} />
-
+    <article className="group grid gap-3 rounded-[1.4rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] px-3 py-3 transition hover:bg-[rgba(255,250,239,0.95)] md:grid-cols-[72px_minmax(0,1fr)] md:items-start md:px-4">
       <div
         className={`flex h-[84px] w-[64px] shrink-0 items-end overflow-hidden rounded-[1.1rem] border border-[var(--border)] px-3 py-2 text-left md:h-[92px] md:w-[72px] ${tone.previewClassName}`}
       >
@@ -166,24 +147,17 @@ function InboxListRow({ item }: { item: InboxItemViewModel }) {
       </div>
 
       <div className="min-w-0">
-        <div className="flex flex-wrap items-start gap-2">
-          <h3
-            className="min-w-0 flex-1 text-[15px] leading-6 font-medium text-[var(--foreground)] sm:text-base"
-            style={{
-              display: "-webkit-box",
-              WebkitBoxOrient: "vertical",
-              WebkitLineClamp: 2,
-              overflow: "hidden",
-            }}
-          >
-            {item.title}
-          </h3>
-          <div className="flex shrink-0 flex-wrap gap-1.5">
-            {item.duplicateOfItemId ? <InlineChip label="Duplicate" tone="warm" /> : null}
-            {item.classification ? <InlineChip label={item.classification} tone="neutral" /> : null}
-            {item.topic ? <InlineChip label={item.topic} tone="accent" /> : null}
-          </div>
-        </div>
+        <h3
+          className="text-[15px] leading-6 font-medium text-[var(--foreground)] sm:text-base"
+          style={{
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: 2,
+            overflow: "hidden",
+          }}
+        >
+          {item.title}
+        </h3>
 
         <p
           className="mt-1.5 overflow-hidden text-sm leading-6 text-[var(--muted)]"
@@ -191,43 +165,23 @@ function InboxListRow({ item }: { item: InboxItemViewModel }) {
             display: "-webkit-box",
             WebkitBoxOrient: "vertical",
             WebkitLineClamp: 2,
+            overflow: "hidden",
           }}
         >
           {item.summaryShort ?? "No short summary was produced for this item."}
         </p>
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
-          {metadataTokens.map((value) => (
-            <span key={value} className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
-              {value}
-            </span>
-          ))}
-        </div>
-
-      </div>
-
-      <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-3 md:block md:border-t-0 md:pt-0">
-        <div className="flex shrink-0 items-center gap-2 md:flex-col md:items-end">
-          {item.url ? (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-2 text-xs uppercase tracking-[0.2em] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            >
-              Open
-            </a>
-          ) : null}
-        </div>
-
-        <div className="min-w-0 md:text-right">
-          <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
-            {item.publishedAtLabel ? "Published" : "Status"}
-          </p>
-          <p className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-6 text-[var(--foreground)]">
-            {item.publishedAtLabel ?? "Recently processed"}
-          </p>
-        </div>
+        {item.url ? (
+          <Link
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex max-w-full items-center gap-1 rounded-full border border-[rgba(29,34,28,0.1)] bg-[rgba(255,255,255,0.52)] px-2.5 py-1 text-[11px] uppercase tracking-[0.22em] text-[var(--accent)] transition hover:border-[rgba(31,107,92,0.24)] hover:bg-[rgba(31,107,92,0.08)]"
+          >
+            <span>Open</span>
+            <span aria-hidden="true">↗</span>
+          </Link>
+        ) : null}
       </div>
     </article>
   );
@@ -271,29 +225,6 @@ function ToolbarChip({ label }: { label: string }) {
   );
 }
 
-function InlineChip({ label, tone }: { label: string; tone: "accent" | "neutral" | "warm" }) {
-  const toneClassName =
-    tone === "accent"
-      ? "bg-[rgba(31,107,92,0.12)] text-[var(--accent)]"
-      : tone === "warm"
-        ? "bg-[rgba(187,108,47,0.12)] text-[var(--warm)]"
-        : "bg-[rgba(29,34,28,0.08)] text-[var(--muted)]";
-
-  return (
-    <span className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${toneClassName}`}>
-      {label}
-    </span>
-  );
-}
-
-function formatScore(value: number | null) {
-  if (value === null) {
-    return "n/a";
-  }
-
-  return value.toFixed(2);
-}
-
 function getPreviewLabel(item: InboxItemViewModel) {
   const sourceSeed = item.sourceName ?? item.topic ?? item.title;
   const letters = sourceSeed
@@ -309,32 +240,17 @@ function getPreviewLabel(item: InboxItemViewModel) {
 function getRowTone(item: InboxItemViewModel) {
   if (item.duplicateOfItemId) {
     return {
-      accentClassName: "bg-[rgba(187,108,47,0.9)]",
       previewClassName: "bg-[linear-gradient(180deg,rgba(187,108,47,0.85),rgba(119,69,30,0.92))]",
     };
   }
 
   if (item.topic) {
     return {
-      accentClassName: "bg-[rgba(31,107,92,0.9)]",
       previewClassName: "bg-[linear-gradient(180deg,rgba(31,107,92,0.78),rgba(17,62,53,0.94))]",
     };
   }
 
   return {
-    accentClassName: "bg-[rgba(72,90,80,0.72)]",
     previewClassName: "bg-[linear-gradient(180deg,rgba(99,113,105,0.82),rgba(47,56,52,0.94))]",
   };
-}
-
-function formatUrlLabel(url: string) {
-  try {
-    const { hostname, pathname } = new URL(url);
-    const trimmedPath = pathname === "/" ? "" : pathname.replace(/\/$/, "");
-    const compactPath = trimmedPath.length > 32 ? `${trimmedPath.slice(0, 32)}…` : trimmedPath;
-
-    return `${hostname}${compactPath}`;
-  } catch {
-    return url;
-  }
 }

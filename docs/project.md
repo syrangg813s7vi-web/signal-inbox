@@ -146,12 +146,13 @@ Inbox design rules:
   - top collection header with tabs and sort controls
   - dense processed-item list rows
 - each Inbox row should emphasize:
+  - preview tile
   - title
   - short summary or excerpt
-  - source metadata
-  - moved or published date
+- when a source URL exists, the row may expose one lightweight `Open` action without reintroducing a metadata band or right-side rail
+- row presentation should hide secondary metadata such as source labels, tags, scores, and published-date rails when the current reader surface is in minimal queue mode
 - the Inbox should optimize for scan speed and information density over decorative chrome
-- long URLs, source references, and metadata must stay inside bounds without horizontal overflow
+- long titles and summaries must stay inside bounds without horizontal overflow
 - mobile should collapse the navigation structure, but should not fall back to oversized card presentation
 
 ### Knowledge
