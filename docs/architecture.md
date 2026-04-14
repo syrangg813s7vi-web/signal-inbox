@@ -16,7 +16,7 @@
 
 ## System Shape
 
-The system is a modular monolith with three product domains and four implementation layers.
+The system is a modular monolith with three product domains and five implementation layers.
 
 ### Product Domains
 
@@ -29,6 +29,7 @@ The system is a modular monolith with three product domains and four implementat
 - `Capture Layer`
 - `Normalization Layer`
 - `Knowledge Layer`
+- `Inbox Selection Layer`
 - `Review Layer`
 
 This shape keeps the system aligned with the information lifecycle instead of centering the design only around source ingestion.
@@ -152,6 +153,7 @@ Layer boundary:
 - `Capture Layer` does not make AI decisions
 - `Normalization Layer` may use limited repair assistance, but does not own AI ranking or summary logic
 - `Knowledge Layer` owns model-backed judgment and note-preservation decisions
+- `Inbox Selection Layer` decides which processed Items deserve Inbox attention
 - `Review Layer` may use AI to synthesize digests and resurfacing output from processed and preserved objects
 
 Knowledge enrichment runtime rule:
@@ -184,7 +186,54 @@ Main modules:
 - `note-builder`
 - `knowledge-sync`
 
-### 4. Review Layer
+### 4. Inbox Selection Layer
+
+Responsible for selecting a compact, high-value, low-noise set of processed Items for Inbox display.
+
+Main responsibilities:
+
+- building an Inbox candidate set from processed `Item` records with current `Enrichment`
+- applying hard filters before UI rendering
+- ranking candidates for attention
+- applying topic and source diversity budgets
+- recording selection reasons and score breakdowns
+
+Primary concepts:
+
+- `InboxCandidate`
+- `InboxSelection`
+- `InboxSelectionPolicy`
+
+Not responsible for:
+
+- raw source fetching
+- normalization into `Item`
+- generating enrichment content
+- page layout and presentational rendering
+
+Selection pipeline rule:
+
+- Inbox selection should be modeled as an explicit pipeline:
+  - candidate fetch
+  - hard filters
+  - scoring
+  - diversity and budget rules
+  - persisted selection output
+- selection logic should not live permanently inside the `/inbox` page query
+
+Extensibility rule:
+
+- filters, scorers, and budget rules should be separable modules
+- the design should support adding new algorithms later without rewriting the page or persistence contract
+- expected future rule families include:
+  - duplicate suppression
+  - low-signal exclusion
+  - topic collapse
+  - source diversity
+  - freshness decay
+  - user-feedback weighting
+
+### 5. Review Layer
 
 Responsible for re-surfacing information and knowledge later.
 
@@ -274,6 +323,17 @@ Inbox view-model rule:
 - presentational components may intentionally hide some of these fields when the active Inbox row design calls for a more minimal reading queue
 - in the current minimal Inbox queue, presentational components should render the preview tile, title, summary, and at most one lightweight source `Open` action
 - presentational components should not derive these semantics directly from low-level persistence records
+
+Inbox selection boundary rule:
+
+- the Inbox page should consume a stable selection result rather than querying the full processed Item population directly
+- the preferred server flow is:
+  - `Item`
+  - `Enrichment`
+  - `Inbox Selection`
+  - `Inbox View Model`
+  - React UI
+- page-level SQL should not become the long-term home of de-duplication, relevance, or diversity logic
 
 Debug and review-stage expectation:
 
@@ -510,8 +570,9 @@ Returns:
 4. The Knowledge Layer scores, deduplicates, summarizes, classifies, groups, and enriches the Item.
 5. High-value Items can be converted into `Note` records.
 6. Notes are synced to knowledge sinks.
-7. The Review Layer selects Items and Notes to generate Digests and future review objects.
-8. Web surfaces render Inbox, Knowledge, Digest, and review entry points.
+7. The Inbox Selection Layer selects a compact set of processed Items for Inbox display.
+8. The Review Layer selects Items and Notes to generate Digests and future review objects.
+9. Web surfaces render Inbox, Knowledge, Digest, and review entry points.
 
 ## Runtime Flows
 
@@ -548,6 +609,15 @@ For direct URL submission:
 6. In V1, initial knowledge sync may run immediately after Note creation so the first `processed Item -> Note -> knowledge sink` path is directly testable before a dedicated sync scheduler exists.
 7. Destination-specific sync results should be recorded on the Note metadata so the Knowledge surface can show what happened without collapsing knowledge sinks into generic delivery logs.
 8. Topic group creation must converge on one stable group per `group_type + tag` even under concurrent processing.
+
+### Inbox Selection Flow
+
+1. The selection layer loads a bounded candidate set from processed `Item` records with current `Enrichment`.
+2. Hard filters remove low-signal, duplicate, or otherwise non-actionable candidates before ranking.
+3. Ranking combines persisted enrichment signals and policy adjustments into a relevance score.
+4. Diversity and budget rules collapse topic clusters and prevent one source or topic from dominating the queue.
+5. The current selection result is persisted as `InboxSelection`.
+6. The Inbox page reads selected rows plus page-specific view shaping data rather than recomputing long-term selection logic inline.
 
 ### Review Flow
 

@@ -337,6 +337,80 @@ Constraints:
 
 - unique pair of `group_id + item_id`
 
+### inbox_candidates
+
+Purpose:
+
+Represent the normalized, enrichment-backed fields that Inbox selection logic operates on.
+
+Design note:
+
+- this is a conceptual model boundary, not necessarily a dedicated persisted table in V1
+- the candidate shape should remain stable even if the underlying `items` or `enrichments` schema grows
+
+Minimum fields:
+
+- `item_id`
+- `title`
+- `summary_short`
+- `importance_score`
+- `novelty_score`
+- `classification`
+- `topic`
+- `topic_group_title`
+- `source_name`
+- `duplicate_of_item_id`
+- `published_at`
+- `metadata`
+
+Rule:
+
+- Inbox filters and scorers should operate on this candidate shape instead of directly depending on low-level storage joins
+
+### inbox_selections
+
+Purpose:
+
+Persist the current Inbox inclusion decision so the Inbox page can consume a stable, explainable selection result.
+
+Fields:
+
+- `id`
+- `item_id`
+- `selected`
+- `is_current`
+- `relevance_score`
+- `score_breakdown`
+- `selection_reasons`
+- `policy_version`
+- `metadata`
+- `created_at`
+- `updated_at`
+
+Suggested metadata:
+
+- `importance_score`
+- `novelty_score`
+- `quality_adjustment`
+- `topic_group_title`
+- `source_name`
+- `candidate_window`
+
+Usage rule:
+
+- the Inbox page should prefer current selected rows from `inbox_selections` over recomputing long-term relevance decisions inline
+- `selection_reasons` should remain human-readable so selection can be debugged and reviewed
+- `score_breakdown` should preserve algorithm component values so future policy changes can be compared against prior results
+- failed or outdated selection runs should not overwrite the last known good current selection set
+
+Selection policy rule:
+
+- Inbox relevance should be designed as a policy-driven combination of:
+  - hard filters
+  - scorer outputs
+  - diversity and budget rules
+- future changes such as source diversity, freshness decay, or user-feedback weighting should extend policy inputs without changing the Inbox page contract
+
 ### notes
 
 Purpose:
