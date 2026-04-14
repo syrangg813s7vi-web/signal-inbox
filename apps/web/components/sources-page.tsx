@@ -11,16 +11,18 @@ export interface SourcesPageProps {
 export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesPageProps) {
   return (
     <ShellFrame
+      activeHref="/sources"
       eyebrow="Sources"
       title="Register recurring RSS sources and trigger the first capture path."
       description="Add a feed, keep it visible, and run a minimal sync when you need to validate the capture-to-inbox slice."
-      callout="Source status combines the configured source state with the initialized sync-state baseline, and active sources expose a manual sync path for first-slice review."
+      sidebarDescription="Capture setup surface for recurring sources and sync status."
+      headerAside={<ToolbarChip label={`${viewModel.sources.length} total`} />}
     >
-      <section className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
-        <article className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--panel)] p-6">
+      <section className="grid gap-3 xl:grid-cols-[minmax(300px,0.68fr)_minmax(0,1.32fr)]">
+        <article className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
+              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
                 Add RSS Source
               </p>
               <p className="mt-3 max-w-sm text-sm leading-6 text-[var(--muted)]">
@@ -38,7 +40,7 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
             <Banner tone="warning" message={viewModel.unavailableReason} />
           ) : null}
 
-          <form action="/sources/create" method="post" className="mt-6 space-y-4">
+          <form action="/sources/create" method="post" className="mt-5 space-y-4">
             <label className="block">
               <span className="text-sm font-medium text-[var(--foreground)]">Name</span>
               <input
@@ -84,24 +86,21 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
           </form>
         </article>
 
-        <article className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--panel)] p-6">
+        <article className="overflow-hidden rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)]">
           <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
+            <div className="px-4 py-4">
+              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
                 Registered Sources
               </p>
               <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
                 Status and a minimal manual sync action are available for first-slice validation.
               </p>
             </div>
-            <span className="rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
-              {viewModel.sources.length} total
-            </span>
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="border-t border-[var(--border)]">
             {viewModel.sources.length === 0 ? (
-              <div className="rounded-[1.5rem] border border-dashed border-[var(--border)] bg-[rgba(29,34,28,0.03)] px-5 py-8 text-sm leading-6 text-[var(--muted)]">
+              <div className="m-3 rounded-[1.25rem] border border-dashed border-[var(--border)] bg-[rgba(29,34,28,0.03)] px-5 py-8 text-sm leading-6 text-[var(--muted)]">
                 {viewModel.isAvailable
                   ? "No RSS sources yet. Add one above to initialize source state and the sync-status placeholder."
                   : "No sources can be loaded until storage is configured for this environment."}
@@ -110,12 +109,14 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
               viewModel.sources.map((source) => (
                 <article
                   key={source.id}
-                  className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--panel-strong)] p-5"
+                  className="border-t border-[var(--border)] px-4 py-4 first:border-t-0"
                 >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="text-lg font-medium text-[var(--foreground)]">{source.name}</h2>
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0 space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="min-w-0 break-words text-base font-medium text-[var(--foreground)] sm:text-[17px]">
+                          {source.name}
+                        </h2>
                         <StatusBadge
                           label={source.statusView.badgeLabel}
                           tone={source.statusView.badgeTone}
@@ -134,14 +135,14 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                           href={source.sourceUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="block text-sm leading-6 text-[var(--accent)] underline-offset-4 hover:underline"
+                          className="block break-all text-sm leading-6 text-[var(--accent)] underline-offset-4 hover:underline"
                         >
                           {source.sourceUrl}
                         </a>
                       ) : null}
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 xl:w-[250px] xl:justify-end">
                       {source.status === "active" ? (
                         <form action={`/sources/${source.id}/sync`} method="post">
                           <button
@@ -224,6 +225,14 @@ function StatusBadge({
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.22em] ${toneClassName}`}>
+      {label}
+    </span>
+  );
+}
+
+function ToolbarChip({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-1.5 text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
       {label}
     </span>
   );

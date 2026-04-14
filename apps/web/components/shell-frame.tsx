@@ -1,22 +1,5 @@
 import Link from "next/link";
 
-const ARCHITECTURE_DOMAINS = [
-  "Capture",
-  "Knowledge",
-  "Review",
-] as const;
-
-const ARCHITECTURE_LAYERS = [
-  "Capture Layer",
-  "Normalization Layer",
-  "Knowledge Layer",
-  "Review Layer",
-] as const;
-
-type ArchitectureDomain = (typeof ARCHITECTURE_DOMAINS)[number];
-type ArchitectureLayer = (typeof ARCHITECTURE_LAYERS)[number];
-type ArchitectureName = ArchitectureDomain | ArchitectureLayer;
-
 const shellLinks = [
   { href: "/", label: "Home" },
   { href: "/inbox", label: "Inbox" },
@@ -24,108 +7,90 @@ const shellLinks = [
   { href: "/sources", label: "Sources" },
 ];
 
-function Chip({ label }: { label: ArchitectureName }) {
-  return (
-    <span className="rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-1 text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-      {label}
-    </span>
-  );
-}
-
 export interface ShellFrameProps {
+  activeHref: string;
   eyebrow: string;
   title: string;
   description: string;
-  callout: string;
+  sidebarDescription?: string;
+  headerAside?: React.ReactNode;
   children?: React.ReactNode;
 }
 
 export function ShellFrame({
+  activeHref,
   eyebrow,
   title,
   description,
-  callout,
+  sidebarDescription,
+  headerAside,
   children,
 }: ShellFrameProps) {
   return (
-    <main className="min-h-screen px-6 py-8 sm:px-10">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-        <header className="overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--panel)] shadow-[0_18px_80px_rgba(29,34,28,0.08)] backdrop-blur">
-          <div className="flex flex-col gap-10 px-6 py-6 sm:px-8 sm:py-8">
-            <div className="flex items-center justify-between gap-4">
+    <main className="min-h-screen px-3 py-3 sm:px-5 sm:py-5 lg:px-8">
+      <div className="mx-auto grid w-full max-w-6xl gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--panel-strong)] lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
+          <div className="flex h-full flex-col gap-5 p-4 sm:p-5">
+            <div className="space-y-2">
+              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.32em] text-[var(--muted)]">
+                Signal Inbox
+              </p>
               <div>
-                <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.32em] text-[var(--muted)]">
-                  Signal Inbox
-                </p>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted)]">
-                  Monorepo scaffold aligned to the documented architecture.
+                <h1 className="font-[family-name:var(--font-display)] text-[2rem] leading-none tracking-[-0.05em] text-[var(--foreground)]">
+                  {eyebrow}
+                </h1>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  {sidebarDescription ?? description}
                 </p>
               </div>
-              <nav className="flex gap-2 rounded-full border border-[var(--border)] bg-[var(--panel-strong)] p-1">
-                {shellLinks.map((link) => (
+            </div>
+
+            <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-1">
+              {shellLinks.map((link) => {
+                const isActive = link.href === activeHref;
+
+                return (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="rounded-full px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--accent-soft)]"
+                    className={`flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition ${
+                      isActive
+                        ? "border border-[rgba(31,107,92,0.2)] bg-[rgba(31,107,92,0.12)] text-[var(--accent)]"
+                        : "text-[var(--foreground)] hover:bg-[rgba(29,34,28,0.05)]"
+                    }`}
                   >
-                    {link.label}
+                    <span>{link.label}</span>
+                    {isActive ? (
+                      <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em]">
+                        Now
+                      </span>
+                    ) : null}
                   </Link>
-                ))}
-              </nav>
-            </div>
+                );
+              })}
+            </nav>
+          </div>
+        </aside>
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.85fr)]">
-              <section className="space-y-5">
-                <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.28em] text-[var(--warm)]">
+        <section className="min-w-0 overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--panel)] shadow-[0_18px_80px_rgba(29,34,28,0.08)]">
+          <div className="border-b border-[var(--border)] px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="min-w-0">
+                <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.3em] text-[var(--warm)]">
                   {eyebrow}
                 </p>
-                <div className="space-y-4">
-                  <h1 className="max-w-3xl font-[family-name:var(--font-display)] text-4xl leading-tight tracking-[-0.04em] sm:text-5xl">
-                    {title}
-                  </h1>
-                  <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
-                    {description}
-                  </p>
-                </div>
-              </section>
+                <h2 className="mt-2 max-w-3xl font-[family-name:var(--font-display)] text-[1.8rem] leading-tight tracking-[-0.05em] text-[var(--foreground)] sm:text-[2.1rem]">
+                  {title}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">{description}</p>
+              </div>
 
-              <aside className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(29,34,28,0.03)] p-5">
-                <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
-                  Ready For Follow-up
-                </p>
-                <p className="mt-4 text-sm leading-7 text-[var(--foreground)]">
-                  {callout}
-                </p>
-              </aside>
+              {headerAside ? <div className="flex flex-wrap gap-2">{headerAside}</div> : null}
             </div>
           </div>
-        </header>
 
-        <section className="grid gap-4 lg:grid-cols-2">
-          <article className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--panel)] p-6">
-            <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
-              Product Domains
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              {ARCHITECTURE_DOMAINS.map((domain) => (
-                <Chip key={domain} label={domain} />
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--panel)] p-6">
-            <p className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.28em] text-[var(--muted)]">
-              Implementation Layers
-            </p>
-            <div className="mt-5 flex flex-wrap gap-3">
-              {ARCHITECTURE_LAYERS.map((layer) => (
-                <Chip key={layer} label={layer} />
-              ))}
-            </div>
-          </article>
+          {children ? <div className="px-3 py-3 sm:px-4">{children}</div> : null}
         </section>
-
-        {children}
       </div>
     </main>
   );
