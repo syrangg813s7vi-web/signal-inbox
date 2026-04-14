@@ -219,12 +219,30 @@ Inbox-specific UI rules:
 - keep actions secondary and compact
 - preserve high information density without horizontal overflow
 
+Inbox row anatomy rules:
+
+- each processed item should render as a horizontal media row rather than a freestanding card
+- the preferred row anatomy is:
+  - left accent rail
+  - fixed thumbnail
+  - title line
+  - excerpt line
+  - compact metadata line
+  - right-aligned date
+  - separate quick-action controls
+- do not let explanatory summary panels dominate the main list surface
+- keep the title and excerpt in the main reading column and keep date/actions outside that text flow
+- quick actions should not squeeze or reflow the text column
+- if a row lacks a thumbnail, use a compact placeholder rather than collapsing the row structure
+
 Layout resilience rules:
 
 - long content must not push the page outside the viewport
 - list rows and metadata containers should be built to tolerate long URLs, source labels, and tags
 - use truncation, line clamping, and bounded flex layouts intentionally
 - desktop and mobile may differ in navigation structure, but should preserve the same row-first reading model
+- the main reading column should be shrinkable with bounded layout rules such as `min-w-0`, truncation, and clamping
+- date and action regions should keep stable width so the text column does not oscillate between rows
 
 ## Database and Data Access Style
 

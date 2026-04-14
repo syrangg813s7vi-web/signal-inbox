@@ -249,6 +249,25 @@ Inbox surface rule:
 - the list item is the primary unit of interaction, not the oversized card
 - row content should be shaped from a stable Inbox view model rather than assembled ad hoc inside leaf UI components
 
+Reader list-item contract:
+
+- each Inbox row should follow one stable horizontal anatomy:
+  - `AccentRail`
+  - `ThumbSlot`
+  - `ContentColumn`
+  - `DateSlot`
+  - `ActionSlot`
+- `ContentColumn` should carry the reading hierarchy:
+  - `TitleLine`
+  - `ExcerptLine`
+  - `MetaLine`
+- the title is the strongest visual element
+- the excerpt is secondary and should remain shorter than the title block
+- metadata should sit on one compact line when possible
+- the date should be visually detached from the content column and right-aligned
+- action controls should be visually secondary and must not compete with the title or excerpt
+- the list item should read as a compact media row, not as a boxed dashboard card or a generic data table row
+
 Inbox view-model rule:
 
 - the server layer should expose a page-specific row model that contains the fields needed for layout, such as:
