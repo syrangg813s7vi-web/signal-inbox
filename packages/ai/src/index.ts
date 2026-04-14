@@ -82,6 +82,9 @@ export type KnowledgeEnrichmentRunner = (input: {
   item: KnowledgeEnrichmentModelInput;
 }) => Promise<KnowledgeEnrichmentResult>;
 
+const DEFAULT_KNOWLEDGE_ENRICHMENT_TIMEOUT_MS = 15_000;
+const GLM_KNOWLEDGE_ENRICHMENT_TIMEOUT_MS = 60_000;
+
 const DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG: KnowledgeEnrichmentConfig = {
   maxOutputTokens: 900,
   model: "gpt-4o-mini-2024-07-18",
@@ -90,7 +93,7 @@ const DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG: KnowledgeEnrichmentConfig = {
   retryAttempts: 1,
   retryBackoffMs: 250,
   temperature: 0.2,
-  timeoutMs: 15_000,
+  timeoutMs: DEFAULT_KNOWLEDGE_ENRICHMENT_TIMEOUT_MS,
 };
 
 const KNOWLEDGE_ENRICHMENT_OUTPUT_SCHEMA = {
@@ -212,6 +215,7 @@ export function resolveKnowledgeEnrichmentConfig(
 ): KnowledgeEnrichmentConfig {
   const provider = readProvider(environment.KNOWLEDGE_ENRICHMENT_PROVIDER);
   const model = readString(environment.KNOWLEDGE_ENRICHMENT_MODEL, DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.model);
+  const baseUrl = resolveOpenAiBaseUrl(environment.KNOWLEDGE_ENRICHMENT_BASE_URL);
   const promptVersion = readString(
     environment.KNOWLEDGE_ENRICHMENT_PROMPT_VERSION,
     DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.promptVersion,
@@ -224,10 +228,15 @@ export function resolveKnowledgeEnrichmentConfig(
     environment.KNOWLEDGE_ENRICHMENT_MAX_OUTPUT_TOKENS,
     DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.maxOutputTokens,
   );
-  const timeoutMs = readOptionalInteger(
-    environment.KNOWLEDGE_ENRICHMENT_TIMEOUT_MS,
-    DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.timeoutMs,
-  );
+  const timeoutDefault = resolveKnowledgeEnrichmentTimeoutDefault({
+    baseUrl,
+    model,
+    provider,
+  });
+  const timeoutMs = resolveKnowledgeEnrichmentTimeoutMs({
+    timeoutDefault,
+    value: environment.KNOWLEDGE_ENRICHMENT_TIMEOUT_MS,
+  });
   const retryAttempts = readInteger(
     environment.KNOWLEDGE_ENRICHMENT_RETRY_ATTEMPTS,
     DEFAULT_KNOWLEDGE_ENRICHMENT_CONFIG.retryAttempts,
@@ -247,6 +256,44 @@ export function resolveKnowledgeEnrichmentConfig(
     temperature: overrides.temperature ?? temperature,
     timeoutMs: overrides.timeoutMs ?? timeoutMs,
   };
+}
+
+function resolveKnowledgeEnrichmentTimeoutDefault(input: {
+  baseUrl: URL;
+  model: string;
+  provider: KnowledgeEnrichmentConfig["provider"];
+}) {
+  if (input.provider !== "openai") {
+    return DEFAULT_KNOWLEDGE_ENRICHMENT_TIMEOUT_MS;
+  }
+
+  const hostname = input.baseUrl.hostname.toLowerCase();
+  const normalizedModel = input.model.trim().toLowerCase();
+  const usesGlmEndpoint = hostname === "open.bigmodel.cn" || hostname.endsWith(".bigmodel.cn");
+  const usesGlmModel = normalizedModel.startsWith("glm-");
+
+  if (usesGlmEndpoint || usesGlmModel) {
+    return GLM_KNOWLEDGE_ENRICHMENT_TIMEOUT_MS;
+  }
+
+  return DEFAULT_KNOWLEDGE_ENRICHMENT_TIMEOUT_MS;
+}
+
+function resolveKnowledgeEnrichmentTimeoutMs(input: {
+  timeoutDefault: number | null;
+  value: string | undefined;
+}) {
+  const configuredTimeout = readOptionalInteger(input.value, input.timeoutDefault);
+
+  if (
+    configuredTimeout === DEFAULT_KNOWLEDGE_ENRICHMENT_TIMEOUT_MS &&
+    typeof input.timeoutDefault === "number" &&
+    input.timeoutDefault > configuredTimeout
+  ) {
+    return input.timeoutDefault;
+  }
+
+  return configuredTimeout;
 }
 
 export async function runKnowledgeEnrichment(input: {
