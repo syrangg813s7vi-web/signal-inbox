@@ -65,6 +65,7 @@ States:
 V1 source types:
 
 - `rss`
+- `submitted_url`
 
 Future source types:
 
@@ -117,6 +118,7 @@ V1 entry types:
 
 - `source_sync`
 - `manual_link`
+- `url_submission`
 
 States:
 
@@ -150,6 +152,7 @@ V1 asset types:
 
 - `url`
 - `article`
+- `raw_html`
 
 Future asset types:
 
@@ -165,6 +168,19 @@ States:
 - `new`
 - `normalized`
 - `failed`
+
+URL-ingest metadata guidance:
+
+- for first-pass URL submission, `raw_assets.raw_metadata` should preserve enough fetch and extraction context to explain the capture result, including when available:
+  - `submittedUrl`
+  - `finalUrl`
+  - `httpStatus`
+  - `fetchTimestamp`
+  - `extractor`
+  - `extractorVersion`
+  - `extractionStatus`
+  - `contentType`
+  - `redirectCount`
 
 ### items
 

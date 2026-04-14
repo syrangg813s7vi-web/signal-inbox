@@ -83,6 +83,7 @@ During the debugging and review stage, the website should be exposed through Ver
 
 - RSS feeds
 - manual saved links
+- direct URL submission for first-pass article capture
 
 ### Knowledge Processing
 
@@ -229,3 +230,27 @@ This means Inbox should prefer:
 4. The user opens Home or Inbox to review important processed results.
 5. High-value Items can be turned into Notes and synced to knowledge sinks.
 6. The user reads a Digest and later review surfaces to revisit important content.
+
+## First-pass URL Capture
+
+The first non-RSS expansion path should be direct URL submission.
+
+Goal:
+
+- accept a submitted article URL
+- fetch and extract the remote page
+- persist the result through the shared capture path
+- continue through normalization and knowledge processing without a special downstream pipeline
+
+V1 intent:
+
+- treat this as the simplest path for bot-assisted or manual article capture
+- use it to ingest article links such as WeChat article URLs before introducing a dedicated WeChat connector or RSS bridge
+- prioritize proving `URL -> CaptureEntry -> RawAsset -> Item` over solving every provider-specific edge case
+
+Constraints:
+
+- URL capture is a capture-ingress feature, not a separate product domain
+- a submitted URL should still become `CaptureEntry` and `RawAsset`, not bypass the shared capture model
+- fetch and extraction failures must be explicit and inspectable
+- the first version should prefer a request body payload over query-string-only submission so the interface can grow without redesign

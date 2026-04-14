@@ -44,6 +44,7 @@ Main responsibilities:
 
 - source management
 - manual capture entry
+- direct URL capture ingestion
 - connector execution
 - raw asset persistence
 
@@ -64,6 +65,7 @@ Main modules:
 - `capture-manager`
 - `connectors`
 - `manual-capture`
+- `url-ingest`
 - `raw-storage`
 
 ### 2. Normalization Layer
@@ -337,6 +339,7 @@ V1 source types:
 
 - rss
 - manual_link
+- submitted_url
 
 Future source types:
 
@@ -345,6 +348,54 @@ Future source types:
 - youtube
 - podcast
 - bot_forward
+
+### URL Ingest
+
+The first non-RSS expansion path should be direct URL submission.
+
+Recommended endpoint shape:
+
+- `POST /api/capture/url`
+
+Minimum request body:
+
+- `url`
+
+Optional body fields later:
+
+- `sourceType`
+- `sourceName`
+- `submittedBy`
+- `notes`
+
+Execution flow:
+
+1. accept a submitted `http` or `https` URL
+2. validate and normalize the submitted URL
+3. fetch the remote page with a stable server-side user agent and timeout
+4. record the original submitted URL and the final fetched URL after redirects
+5. extract article-like content into an ingest-ready shape
+6. persist the submission as one `CaptureEntry`
+7. persist the fetched material as one or more `RawAsset` records
+8. continue through the existing normalization and knowledge pipeline
+
+Design rules:
+
+- direct URL submission is a capture-ingress mechanism, not a special downstream processing path
+- do not bypass `CaptureEntry` or `RawAsset` for URL-based inputs
+- provider-specific extraction failures should be recorded as capture failures, not silent skips
+- the first version may be best-effort, but it must record enough metadata to explain:
+  - original URL
+  - final fetched URL
+  - fetch status
+  - extraction status
+  - extractor identity and version when available
+
+WeChat-specific posture:
+
+- the first WeChat article experiment should submit article URLs through this shared URL-ingest path
+- do not introduce a dedicated WeChat connector before the URL path proves viable
+- if URL-only ingest later proves too fragile, evolve the ingress to a richer payload or an RSS bridge without changing the downstream model
 
 ### Normalizer
 
@@ -468,6 +519,13 @@ Returns:
 3. One or more `RawAsset` records are created.
 4. V1 immediately triggers normalization for each new `RawAsset` after capture persistence.
 5. Capture-level failures only reflect fetch and capture persistence problems; downstream normalization or knowledge failures are recorded on their own layer objects without rewriting source sync state as a capture failure.
+
+For direct URL submission:
+
+1. A URL ingest request is accepted.
+2. The Capture Layer stores the submission as one `CaptureEntry`.
+3. The fetched page and extracted article-like material are persisted as one or more `RawAsset` records.
+4. The shared normalization pipeline converts that material into an `Item`.
 
 ### Normalization Flow
 
