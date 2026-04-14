@@ -120,6 +120,16 @@ interface CandidateRow {
   whyItMatters: string | null;
 }
 
+interface ScoredInboxCandidate {
+  candidate: InboxCandidate;
+  reasons: string[];
+  scoreBreakdown: InboxSelectionScoreBreakdown;
+  sourceKey: string | null;
+  titleTokens: string[];
+  topicKey: string | null;
+  visibleContent: VisibleContentAssessment;
+}
+
 interface SelectedInboxRow extends CandidateRow {
   relevanceScore: number;
   scoreBreakdown: InboxSelectionScoreBreakdown;
@@ -352,15 +362,7 @@ function mapCandidateRow(row: CandidateRow): InboxCandidate {
 
 function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDecision[] {
   const decisionsByItemId = new Map<string, InboxSelectionDecision>();
-  const scoredCandidates: Array<{
-    candidate: InboxCandidate;
-    reasons: string[];
-    scoreBreakdown: InboxSelectionScoreBreakdown;
-    topicKey: string;
-    sourceKey: string;
-    titleTokens: string[];
-    visibleContent: VisibleContentAssessment;
-  }> = [];
+  const scoredCandidates: ScoredInboxCandidate[] = [];
 
   for (const candidate of candidates) {
     const scoreBreakdown = scoreCandidate(candidate);
@@ -386,12 +388,9 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
       candidate,
       reasons: getSelectionReasons(candidate, scoreBreakdown, visibleContent),
       scoreBreakdown,
-      sourceKey: normalizeBucketKey(candidate.sourceName, "unknown-source"),
+      sourceKey: resolveSourceDiversityKey(candidate),
       titleTokens: tokenizeTitle(candidate.title),
-      topicKey: normalizeBucketKey(
-        candidate.topicGroupTitle ?? candidate.topic ?? candidate.classification,
-        "unknown-topic",
-      ),
+      topicKey: resolveTopicDiversityKey(candidate),
       visibleContent,
     });
   }
@@ -410,8 +409,8 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
   let selectedCount = 0;
 
   for (const entry of scoredCandidates) {
-    const topicCount = topicCounts.get(entry.topicKey) ?? 0;
-    const sourceCount = sourceCounts.get(entry.sourceKey) ?? 0;
+    const topicCount = entry.topicKey ? (topicCounts.get(entry.topicKey) ?? 0) : 0;
+    const sourceCount = entry.sourceKey ? (sourceCounts.get(entry.sourceKey) ?? 0) : 0;
 
     if (selectedCount >= INBOX_SELECTION_BUDGET) {
       decisionsByItemId.set(
@@ -443,7 +442,7 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
       continue;
     }
 
-    if (topicCount >= INBOX_SELECTION_MAX_PER_TOPIC) {
+    if (entry.topicKey && topicCount >= INBOX_SELECTION_MAX_PER_TOPIC) {
       decisionsByItemId.set(
         entry.candidate.id,
         buildDecision({
@@ -458,7 +457,7 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
       continue;
     }
 
-    if (sourceCount >= INBOX_SELECTION_MAX_PER_SOURCE) {
+    if (entry.sourceKey && sourceCount >= INBOX_SELECTION_MAX_PER_SOURCE) {
       decisionsByItemId.set(
         entry.candidate.id,
         buildDecision({
@@ -474,8 +473,14 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
     }
 
     selectedCount += 1;
-    topicCounts.set(entry.topicKey, topicCount + 1);
-    sourceCounts.set(entry.sourceKey, sourceCount + 1);
+    if (entry.topicKey) {
+      topicCounts.set(entry.topicKey, topicCount + 1);
+    }
+
+    if (entry.sourceKey) {
+      sourceCounts.set(entry.sourceKey, sourceCount + 1);
+    }
+
     selectedTitleTokenSets.push(entry.titleTokens);
     decisionsByItemId.set(
       entry.candidate.id,
@@ -483,8 +488,8 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
         candidate: entry.candidate,
         reasons: [
           ...entry.reasons,
-          `topic_slot_${topicCount + 1}`,
-          `source_slot_${sourceCount + 1}`,
+          ...(entry.topicKey ? [`topic_slot_${topicCount + 1}`] : []),
+          ...(entry.sourceKey ? [`source_slot_${sourceCount + 1}`] : []),
           `selection_rank_${selectedCount}`,
         ],
         scoreBreakdown: entry.scoreBreakdown,
@@ -696,10 +701,18 @@ function toScoreBreakdownRecord(scoreBreakdown: InboxSelectionScoreBreakdown): R
   };
 }
 
-function normalizeBucketKey(value: string | null | undefined, fallback: string) {
+function resolveSourceDiversityKey(candidate: InboxCandidate) {
+  return normalizeOptionalBucketKey(candidate.sourceName);
+}
+
+function resolveTopicDiversityKey(candidate: InboxCandidate) {
+  return normalizeOptionalBucketKey(candidate.topicGroupTitle ?? candidate.topic);
+}
+
+function normalizeOptionalBucketKey(value: string | null | undefined) {
   const normalized = normalizeWhitespace(value ?? "").toLowerCase();
 
-  return normalized || fallback;
+  return normalized || null;
 }
 
 function assessVisibleContent(candidate: InboxCandidate): VisibleContentAssessment {

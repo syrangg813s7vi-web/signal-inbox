@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import http from "node:http";
 import { randomUUID } from "node:crypto";
 
+import type { KnowledgeEnrichmentRunner } from "@signal-inbox/ai";
 import {
   captureEntries,
   createDbFromClient,
@@ -15,7 +17,34 @@ import {
   sources,
   startTemporaryPostgres,
 } from "@signal-inbox/db";
+import { runNormalizeRawAssetJob, runProcessItemJob, runSubmittedUrlIngestJob } from "@signal-inbox/core";
 import { listSelectedInboxItems, refreshInboxSelections } from "@signal-inbox/review";
+
+import { getInboxPageViewModel } from "./inbox";
+
+const inboxSmokeKnowledgeEnrichmentRunner: KnowledgeEnrichmentRunner = async ({ config, item }) => ({
+  config,
+  output: {
+    classification: {
+      label: "research",
+      topic: item.sourceTopic ?? "AI",
+    },
+    importanceScore: 0.78,
+    keyPoints: [
+      "The explicit processing path should rebuild current Inbox selections.",
+      "The page read path should consume the current selected output without recomputing it.",
+    ],
+    noteDraft: null,
+    noveltyScore: 0.73,
+    preserveRecommendation: "review",
+    summary: {
+      long: "This submitted URL item validates that processing-driven selection refresh keeps Inbox current without page-read recomputation.",
+      short: "Processing-driven selection refresh keeps Inbox current.",
+    },
+    tags: ["capture", "url", "review"],
+    whyItMatters: "The Inbox page should stay read-only while explicit processing keeps current selections fresh.",
+  },
+});
 
 async function main() {
   const useProvidedDatabaseUrl = process.env.SIGNAL_INBOX_SMOKE_USE_DATABASE_URL === "1";
@@ -226,6 +255,13 @@ async function main() {
       whyItMatters: null,
     });
 
+    const viewModelBeforeRefresh = await getInboxPageViewModel();
+    assert.equal(
+      viewModelBeforeRefresh.items.length,
+      0,
+      "Inbox page reads should not recompute selections before an explicit rebuild occurs.",
+    );
+
     const refreshResult = await refreshInboxSelections(databaseUrl);
     const selectedItems = await listSelectedInboxItems(databaseUrl);
 
@@ -274,6 +310,153 @@ async function main() {
     assert.ok(selectedPrimaryItem.selectionReasons.includes("meaningful_summary"));
     assert.equal(selectedPrimaryItem.selectionMetadata.candidateWindow, 64);
     assert.equal(selectedPrimaryItem.selectionMetadata.maxPerSource, 3);
+
+    const viewModelAfterRefresh = await getInboxPageViewModel();
+    assert.equal(
+      viewModelAfterRefresh.items.length,
+      selectedItems.length,
+      "Inbox page should read the current selected output after an explicit rebuild.",
+    );
+
+    const ingestedItem = await ingestSubmittedUrlItem(databaseUrl);
+    const viewModelAfterUrlIngest = await getInboxPageViewModel();
+    const inboxIngestedItem = viewModelAfterUrlIngest.items.find((item) => item.id === ingestedItem.itemId);
+
+    assert.ok(
+      inboxIngestedItem,
+      "Explicit processing should refresh selections so submitted URL items appear without page-read recomputation.",
+    );
+    assert.equal(inboxIngestedItem.title, "Inbox direct URL ingest article");
+    assert.equal(inboxIngestedItem.url, ingestedItem.submittedUrl);
+
+    await truncateInboxScenarioTables(client);
+
+    const missingTopicSourceOne = await createSource(db, {
+      name: "Missing Topic Feed One",
+      publishedAt,
+      topic: "Signals",
+    });
+    const missingTopicSourceTwo = await createSource(db, {
+      name: "Missing Topic Feed Two",
+      publishedAt,
+      topic: "Signals",
+    });
+    const missingTopicSourceThree = await createSource(db, {
+      name: "Missing Topic Feed Three",
+      publishedAt,
+      topic: "Signals",
+    });
+
+    const missingTopicItemIds = [
+      await createProcessedItem(db, {
+        classification: null,
+        contentText: "A browser policy shift changes how personal knowledge capture tools can persist article context across sessions without a stable explicit topic label.",
+        importanceScore: 0.83,
+        noveltyScore: 0.72,
+        publishedAt: new Date("2026-04-12T04:50:00.000Z"),
+        sourceId: missingTopicSourceOne,
+        summaryShort: "Browser storage policy shift with clear review value despite a missing topic label.",
+        title: "Browser storage policy shift",
+        topic: null,
+        topicGroupTitles: [],
+        whyItMatters: "Null-topic rows should remain independent when no real grouping key exists.",
+      }),
+      await createProcessedItem(db, {
+        classification: null,
+        contentText: "A model audit methodology update changes how benchmark regressions should be interpreted even when the enrichment output does not carry a stable topic field.",
+        importanceScore: 0.82,
+        noveltyScore: 0.71,
+        publishedAt: new Date("2026-04-12T04:49:00.000Z"),
+        sourceId: missingTopicSourceTwo,
+        summaryShort: "Model audit methodology update stays important even without a topic label.",
+        title: "Model audit methodology update",
+        topic: null,
+        topicGroupTitles: [],
+        whyItMatters: "Independent null-topic rows should not compete under an artificial topic bucket.",
+      }),
+      await createProcessedItem(db, {
+        classification: null,
+        contentText: "A robotics workflow case study exposes a new failure pattern that deserves review even though the processed item does not retain a stable topic assignment.",
+        importanceScore: 0.81,
+        noveltyScore: 0.7,
+        publishedAt: new Date("2026-04-12T04:48:00.000Z"),
+        sourceId: missingTopicSourceThree,
+        summaryShort: "Robotics workflow case study deserves review without relying on a topic label.",
+        title: "Robotics workflow case study",
+        topic: null,
+        topicGroupTitles: [],
+        whyItMatters: "Selection should only apply topic diversity to real topic keys.",
+      }),
+    ];
+
+    const sourcelessItemIds = [
+      await createProcessedItem(db, {
+        classification: null,
+        contentText: "A cache invalidation drill outlines a reusable operational pattern and should remain eligible even when the capture path has no attached source record.",
+        importanceScore: 0.8,
+        noveltyScore: 0.69,
+        publishedAt: new Date("2026-04-12T04:47:00.000Z"),
+        sourceId: null,
+        summaryShort: "Cache invalidation drill with review value despite a missing source record.",
+        title: "Cache invalidation drill",
+        topic: "Independent alpha",
+        topicGroupTitles: [],
+        whyItMatters: "Missing-source rows should not share a synthetic source bucket.",
+      }),
+      await createProcessedItem(db, {
+        classification: null,
+        contentText: "A compiler rollout memo describes a concrete migration hazard and should remain eligible even when the capture path has no attached source record.",
+        importanceScore: 0.79,
+        noveltyScore: 0.68,
+        publishedAt: new Date("2026-04-12T04:46:00.000Z"),
+        sourceId: null,
+        summaryShort: "Compiler rollout memo with review value despite a missing source record.",
+        title: "Compiler rollout memo",
+        topic: "Independent beta",
+        topicGroupTitles: [],
+        whyItMatters: "Missing-source rows should stay independent without a real source key.",
+      }),
+      await createProcessedItem(db, {
+        classification: null,
+        contentText: "An inference latency note identifies a concrete deployment tradeoff and should remain eligible even when the capture path has no attached source record.",
+        importanceScore: 0.78,
+        noveltyScore: 0.67,
+        publishedAt: new Date("2026-04-12T04:45:00.000Z"),
+        sourceId: null,
+        summaryShort: "Inference latency note with review value despite a missing source record.",
+        title: "Inference latency note",
+        topic: "Independent gamma",
+        topicGroupTitles: [],
+        whyItMatters: "Missing-source rows should stay independent without a real source key.",
+      }),
+      await createProcessedItem(db, {
+        classification: null,
+        contentText: "An operations failover brief captures a concrete mitigation pattern and should remain eligible even when the capture path has no attached source record.",
+        importanceScore: 0.77,
+        noveltyScore: 0.66,
+        publishedAt: new Date("2026-04-12T04:44:00.000Z"),
+        sourceId: null,
+        summaryShort: "Operations failover brief with review value despite a missing source record.",
+        title: "Operations failover brief",
+        topic: "Independent delta",
+        topicGroupTitles: [],
+        whyItMatters: "Missing-source rows should stay independent without a real source key.",
+      }),
+    ];
+
+    const fallbackRefreshResult = await refreshInboxSelections(databaseUrl);
+    const fallbackSelectedItems = await listSelectedInboxItems(databaseUrl);
+    const fallbackSelectedIds = new Set(fallbackSelectedItems.map((item) => item.id));
+
+    assert.equal(fallbackRefreshResult.selectedCount, 7);
+    assert.equal(fallbackSelectedItems.length, 7);
+
+    for (const itemId of [...missingTopicItemIds, ...sourcelessItemIds]) {
+      assert.ok(
+        fallbackSelectedIds.has(itemId),
+        "Items without real topic/source keys should stay independent instead of sharing fallback diversity buckets.",
+      );
+    }
 
     console.log(
       JSON.stringify(
@@ -327,16 +510,17 @@ async function createSource(
 async function createProcessedItem(
   db: ReturnType<typeof createDbFromClient>,
   input: {
+    classification?: string | null;
     contentText: string;
     duplicateOfItemId?: string;
     importanceScore: number;
     noveltyScore: number;
     preserveRecommendation?: "discard" | "keep" | "review";
     publishedAt: Date;
-    sourceId: string;
+    sourceId: string | null;
     summaryShort: string;
     title: string;
-    topic: string;
+    topic: string | null;
     topicGroupTitles: string[];
     whyItMatters: string | null;
   },
@@ -383,7 +567,7 @@ async function createProcessedItem(
     .returning({ id: items.id });
 
   await db.insert(enrichments).values({
-    classification: "research",
+    classification: input.classification ?? "research",
     importanceScore: input.importanceScore,
     itemId: item.id,
     noveltyScore: input.noveltyScore,
@@ -410,6 +594,90 @@ async function createProcessedItem(
   }
 
   return item.id;
+}
+
+async function truncateInboxScenarioTables(client: ReturnType<typeof createSqlClient>) {
+  await client.unsafe(`
+    truncate table
+      inbox_selections,
+      item_group_members,
+      item_groups,
+      enrichments,
+      items,
+      raw_assets,
+      capture_entries,
+      source_sync_state,
+      sources
+    restart identity cascade
+  `);
+}
+
+async function ingestSubmittedUrlItem(databaseUrl: string) {
+  const server = http.createServer((request, response) => {
+    if (request.url === "/article") {
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(`<!doctype html>
+<html lang="en">
+  <head>
+    <title>Inbox direct URL ingest article</title>
+    <meta property="article:published_time" content="2026-04-14T03:00:00.000Z" />
+  </head>
+  <body>
+    <article>
+      <h1>Inbox direct URL ingest article</h1>
+      <p>This article validates that direct URL submissions remain visible in the Inbox queue.</p>
+      <p>It references AI agents and orchestration to exercise the shared knowledge pipeline.</p>
+      <p>${"content ".repeat(200)}</p>
+    </article>
+  </body>
+</html>`);
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    response.end("not found");
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+
+  assert.ok(address && typeof address !== "string");
+
+  try {
+    const submittedUrl = `http://127.0.0.1:${address.port}/article`;
+    const result = await runSubmittedUrlIngestJob({
+      databaseUrl,
+      submittedUrl,
+      triggerRef: "inbox-smoke:url-ingest",
+      normalizeRawAssetJobRunner: ({ databaseUrl: jobDatabaseUrl, rawAssetId }) =>
+        runNormalizeRawAssetJob({
+          databaseUrl: jobDatabaseUrl,
+          rawAssetId,
+          processItemJobRunner: ({ databaseUrl: processDatabaseUrl, itemId }) =>
+            runProcessItemJob({
+              databaseUrl: processDatabaseUrl,
+              itemId,
+              knowledgeEnrichmentRunner: inboxSmokeKnowledgeEnrichmentRunner,
+            }),
+        }),
+    });
+
+    return {
+      itemId: result.processedItemIds[0]!,
+      submittedUrl,
+    };
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
 }
 
 void main().catch((error) => {

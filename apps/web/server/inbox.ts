@@ -1,5 +1,5 @@
 import { bootstrapInboxStorageSchema, createSqlClient } from "@signal-inbox/db";
-import { listSelectedInboxItems, refreshInboxSelections } from "@signal-inbox/review";
+import { listSelectedInboxItems } from "@signal-inbox/review";
 
 export interface InboxItemViewModel {
   classification: string | null;
@@ -68,10 +68,7 @@ let inboxStorageBootstrapPromise: Promise<void> | null = null;
 
 export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
   try {
-    const rows = await withInboxStorageReady(async () => {
-      await refreshInboxSelections();
-      return listSelectedInboxItems();
-    });
+    const rows = await withInboxStorageReady(() => listSelectedInboxItems());
 
     return {
       isAvailable: true,

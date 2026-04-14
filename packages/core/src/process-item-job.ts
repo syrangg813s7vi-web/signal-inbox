@@ -1,4 +1,5 @@
 import type { KnowledgeEnrichmentConfig, KnowledgeEnrichmentRunner } from "@signal-inbox/ai";
+import { refreshInboxSelections } from "@signal-inbox/review";
 import {
   processItem,
   recordItemProcessingFailure,
@@ -57,6 +58,16 @@ export async function runProcessItemJob(input: RunProcessItemJobInput) {
       status: result.status,
       synced_destination_count: result.syncedDestinationCount,
       topic: result.topic,
+    });
+
+    const selectionRefresh = await refreshInboxSelections(input.databaseUrl);
+
+    console.info("inbox selection refreshed", {
+      candidate_count: selectionRefresh.candidateCount,
+      item_id: result.itemId,
+      job_type: "process-item",
+      policy_version: selectionRefresh.policyVersion,
+      selected_count: selectionRefresh.selectedCount,
     });
 
     return result;
