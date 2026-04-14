@@ -221,6 +221,14 @@ This means Inbox should prefer:
 - list readability over dashboard widgets
 - predictable spacing and truncation over free-form content blocks
 
+Inbox selection rule:
+
+- Inbox is not a raw stream of all processed Items
+- Inbox should show a compact queue of high-value, low-noise, high-information-gain Items
+- selection into Inbox should happen before rendering and should be explainable
+- Inbox should prefer fewer, more distinct, more important Items over a larger undifferentiated list
+- duplicate, low-signal, and semantically repetitive Items should be filtered before page rendering
+
 ## Core User Flow
 
 1. A source is added or a link is manually captured.
