@@ -13,7 +13,8 @@
     "@signal-inbox/capture": "workspace:*",
     "@signal-inbox/connectors": "workspace:*",
     "@signal-inbox/knowledge": "workspace:*",
-    "@signal-inbox/normalization": "workspace:*"
+    "@signal-inbox/normalization": "workspace:*",
+    "@signal-inbox/review": "workspace:*"
   },
   "devDependencies": {
     "@signal-inbox/db": "workspace:*",

@@ -253,6 +253,39 @@ export const itemGroupMembers = pgTable(
   ],
 );
 
+export const inboxSelections = pgTable(
+  "inbox_selections",
+  {
+    id: uuid("id").$defaultFn(randomUUID).primaryKey(),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    selected: boolean("selected").notNull().default(false),
+    isCurrent: boolean("is_current").notNull().default(true),
+    relevanceScore: real("relevance_score").notNull(),
+    scoreBreakdown: jsonb("score_breakdown")
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(emptyJsonb),
+    selectionReasons: text("selection_reasons").array().notNull().default(sql`'{}'::text[]`),
+    policyVersion: text("policy_version").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default(emptyJsonb),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("inbox_selections_current_item_id_key")
+      .on(table.itemId)
+      .where(sql`${table.isCurrent} is true`),
+    index("inbox_selections_current_selected_idx").on(table.isCurrent, table.selected),
+    index("inbox_selections_relevance_score_idx").on(table.relevanceScore),
+  ],
+);
+
 export const notes = pgTable(
   "notes",
   {

@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     "@signal-inbox/db",
     "@signal-inbox/knowledge",
     "@signal-inbox/normalization",
+    "@signal-inbox/review",
   ],
 };
 

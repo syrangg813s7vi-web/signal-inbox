@@ -228,6 +228,22 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
       `);
 
       await transaction.unsafe(`
+        create table if not exists "inbox_selections" (
+          "id" uuid primary key not null,
+          "item_id" uuid not null,
+          "selected" boolean not null default false,
+          "is_current" boolean not null default true,
+          "relevance_score" real not null,
+          "score_breakdown" jsonb not null default '{}'::jsonb,
+          "selection_reasons" text[] not null default '{}'::text[],
+          "policy_version" text not null,
+          "metadata" jsonb not null default '{}'::jsonb,
+          "created_at" timestamp with time zone not null default now(),
+          "updated_at" timestamp with time zone not null default now()
+        )
+      `);
+
+      await transaction.unsafe(`
         do $$
         begin
           if not exists (
@@ -305,6 +321,20 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
           ) then
             alter table "item_group_members"
             add constraint "item_group_members_item_id_items_id_fk"
+            foreign key ("item_id") references "public"."items"("id") on delete cascade;
+          end if;
+        end
+        $$;
+      `);
+
+      await transaction.unsafe(`
+        do $$
+        begin
+          if not exists (
+            select 1 from pg_constraint where conname = 'inbox_selections_item_id_items_id_fk'
+          ) then
+            alter table "inbox_selections"
+            add constraint "inbox_selections_item_id_items_id_fk"
             foreign key ("item_id") references "public"."items"("id") on delete cascade;
           end if;
         end
@@ -405,6 +435,22 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
       await transaction.unsafe(`
         create index if not exists "item_group_members_item_id_idx"
         on "item_group_members" using btree ("item_id")
+      `);
+
+      await transaction.unsafe(`
+        create unique index if not exists "inbox_selections_current_item_id_key"
+        on "inbox_selections" using btree ("item_id")
+        where "is_current" is true
+      `);
+
+      await transaction.unsafe(`
+        create index if not exists "inbox_selections_current_selected_idx"
+        on "inbox_selections" using btree ("is_current", "selected")
+      `);
+
+      await transaction.unsafe(`
+        create index if not exists "inbox_selections_relevance_score_idx"
+        on "inbox_selections" using btree ("relevance_score")
       `);
     });
   } finally {

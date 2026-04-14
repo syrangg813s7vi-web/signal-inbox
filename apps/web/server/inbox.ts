@@ -1,17 +1,5 @@
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
-
-import {
-  bootstrapInboxStorageSchema,
-  captureEntries,
-  createDbFromClient,
-  createSqlClient,
-  enrichments,
-  itemGroupMembers,
-  itemGroups,
-  items,
-  rawAssets,
-  sources,
-} from "@signal-inbox/db";
+import { bootstrapInboxStorageSchema, createSqlClient } from "@signal-inbox/db";
+import { listSelectedInboxItems } from "@signal-inbox/review";
 
 export interface InboxItemViewModel {
   classification: string | null;
@@ -20,6 +8,18 @@ export interface InboxItemViewModel {
   importanceScore: number | null;
   noveltyScore: number | null;
   publishedAtLabel: string | null;
+  selection: {
+    metadata: Record<string, unknown>;
+    policyVersion: string;
+    reasons: string[];
+    relevanceScore: number;
+    scoreBreakdown: {
+      importanceScore: number;
+      noveltyScore: number;
+      qualityAdjustment: number;
+      totalScore: number;
+    };
+  };
   sourceName: string | null;
   sourceTopic: string | null;
   sourceTypeLabel: string | null;
@@ -37,26 +37,7 @@ export interface InboxPageViewModel {
   unavailableReason: string | null;
 }
 
-interface InboxRow {
-  canonicalUrl: string | null;
-  classification: string | null;
-  contentText: string | null;
-  id: string;
-  importanceScore: number | null;
-  metadata: Record<string, unknown>;
-  noveltyScore: number | null;
-  publishedAt: Date | null;
-  summaryLong: string | null;
-  sourceName: string | null;
-  sourceTopic: string | null;
-  sourceType: "rss" | null;
-  summaryShort: string | null;
-  tags: string[] | null;
-  title: string | null;
-  topic: string | null;
-  topicGroupTitle: string | null;
-}
-
+type SelectedInboxRow = Awaited<ReturnType<typeof listSelectedInboxItems>>[number];
 type InboxUnavailableKind = "bootstrap" | "configuration" | "connection" | "schema";
 
 class InboxStorageBootstrapError extends Error {
@@ -69,6 +50,7 @@ class InboxStorageBootstrapError extends Error {
 interface PreviewInboxProbeResult {
   captureEntriesExists: boolean;
   enrichmentsExists: boolean;
+  inboxSelectionsExists: boolean;
   itemGroupMembersExists: boolean;
   itemGroupsExists: boolean;
   itemsExists: boolean;
@@ -86,7 +68,7 @@ let inboxStorageBootstrapPromise: Promise<void> | null = null;
 
 export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
   try {
-    const rows = await withInboxStorageReady(() => loadInboxRows());
+    const rows = await withInboxStorageReady(() => listSelectedInboxItems());
 
     return {
       isAvailable: true,
@@ -116,65 +98,6 @@ export async function getInboxPageViewModel(): Promise<InboxPageViewModel> {
   }
 }
 
-async function loadInboxRows() {
-  const client = createSqlClient();
-  const db = createDbFromClient(client);
-  const topicGroupTitles = db
-    .select({
-      itemId: itemGroupMembers.itemId,
-      topicGroupTitle: sql<string | null>`
-        case
-          when count(*) = 1 then min(${itemGroups.title})
-          else null
-        end
-      `.as("topicGroupTitle"),
-    })
-    .from(itemGroupMembers)
-    .innerJoin(
-      itemGroups,
-      and(eq(itemGroups.id, itemGroupMembers.groupId), eq(itemGroups.groupType, "topic")),
-    )
-    .groupBy(itemGroupMembers.itemId)
-    .as("topic_group_titles");
-
-  try {
-    return await db
-      .select({
-        canonicalUrl: items.canonicalUrl,
-        classification: enrichments.classification,
-        contentText: items.contentText,
-        id: items.id,
-        importanceScore: enrichments.importanceScore,
-        metadata: items.metadata,
-        noveltyScore: enrichments.noveltyScore,
-        publishedAt: items.publishedAt,
-        summaryLong: enrichments.summaryLong,
-        sourceName: sources.name,
-        sourceTopic: sources.topic,
-        sourceType: sources.sourceType,
-        summaryShort: enrichments.summaryShort,
-        tags: enrichments.tags,
-        title: items.title,
-        topic: enrichments.topic,
-        topicGroupTitle: topicGroupTitles.topicGroupTitle,
-      })
-      .from(items)
-      .innerJoin(
-        enrichments,
-        and(eq(enrichments.itemId, items.id), eq(enrichments.isCurrent, true)),
-      )
-      .leftJoin(rawAssets, eq(rawAssets.id, items.rawAssetId))
-      .leftJoin(captureEntries, eq(captureEntries.id, rawAssets.captureEntryId))
-      .leftJoin(sources, eq(sources.id, captureEntries.sourceId))
-      .leftJoin(topicGroupTitles, eq(topicGroupTitles.itemId, items.id))
-      .where(and(eq(items.status, "processed"), eq(enrichments.isCurrent, true), isNotNull(enrichments.itemId)))
-      .orderBy(desc(items.createdAt), desc(enrichments.importanceScore), desc(items.publishedAt))
-      .limit(24);
-  } finally {
-    await client.end();
-  }
-}
-
 async function withInboxStorageReady<T>(operation: () => Promise<T>): Promise<T> {
   try {
     return await operation();
@@ -193,14 +116,21 @@ async function withInboxStorageReady<T>(operation: () => Promise<T>): Promise<T>
   }
 }
 
-function mapInboxRow(row: InboxRow): InboxItemViewModel {
+function mapInboxRow(row: SelectedInboxRow): InboxItemViewModel {
   return {
     classification: row.classification,
-    duplicateOfItemId: extractDuplicateOfItemId(row.metadata),
+    duplicateOfItemId: row.duplicateOfItemId,
     id: row.id,
     importanceScore: row.importanceScore,
     noveltyScore: row.noveltyScore,
     publishedAtLabel: row.publishedAt ? timestampFormatter.format(row.publishedAt) : null,
+    selection: {
+      metadata: row.selectionMetadata,
+      policyVersion: row.selectionPolicyVersion,
+      reasons: row.selectionReasons,
+      relevanceScore: row.selectionScore,
+      scoreBreakdown: row.scoreBreakdown,
+    },
     sourceName: row.sourceName?.trim() || null,
     sourceTopic: row.sourceTopic?.trim() || null,
     sourceTypeLabel: row.sourceType ? formatSourceTypeLabel(row.sourceType) : null,
@@ -213,24 +143,13 @@ function mapInboxRow(row: InboxRow): InboxItemViewModel {
   };
 }
 
-function extractDuplicateOfItemId(metadata: Record<string, unknown>) {
-  const knowledgeProcessing = metadata.knowledgeProcessing;
-
-  if (!knowledgeProcessing || typeof knowledgeProcessing !== "object" || Array.isArray(knowledgeProcessing)) {
-    return null;
-  }
-
-  const knowledgeProcessingRecord = knowledgeProcessing as Record<string, unknown>;
-  const duplicateOfItemId = knowledgeProcessingRecord.duplicateOfItemId;
-
-  return typeof duplicateOfItemId === "string" ? duplicateOfItemId : null;
-}
-
 function formatSourceTypeLabel(sourceType: "rss") {
   return sourceType === "rss" ? "RSS" : sourceType;
 }
 
-function resolveInboxSummaryShort(row: Pick<InboxRow, "contentText" | "summaryLong" | "summaryShort" | "title">) {
+function resolveInboxSummaryShort(
+  row: Pick<SelectedInboxRow, "contentText" | "summaryLong" | "summaryShort" | "title">,
+) {
   const title = normalizeWhitespace(row.title ?? "");
   const persistedSummaryShort = normalizeWhitespace(row.summaryShort ?? "");
 
@@ -340,11 +259,7 @@ function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {
       return "configuration";
     }
 
-    if (
-      candidate.code === "42P01" ||
-      candidate.code === "3F000" ||
-      candidate.code === "42704"
-    ) {
+    if (candidate.code === "42P01" || candidate.code === "3F000" || candidate.code === "42704") {
       return "schema";
     }
 
@@ -373,6 +288,7 @@ function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {
     if (
       message.includes('relation "items" does not exist') ||
       message.includes('relation "enrichments" does not exist') ||
+      message.includes('relation "inbox_selections" does not exist') ||
       message.includes('relation "item_group_members" does not exist') ||
       message.includes('relation "item_groups" does not exist') ||
       message.includes('relation "capture_entries" does not exist') ||
@@ -475,7 +391,8 @@ async function loadPreviewInboxProbeResult(): Promise<PreviewInboxProbeResult | 
         to_regclass('public.items') is not null as "itemsExists",
         to_regclass('public.enrichments') is not null as "enrichmentsExists",
         to_regclass('public.item_groups') is not null as "itemGroupsExists",
-        to_regclass('public.item_group_members') is not null as "itemGroupMembersExists"
+        to_regclass('public.item_group_members') is not null as "itemGroupMembersExists",
+        to_regclass('public.inbox_selections') is not null as "inboxSelectionsExists"
     `;
 
     return probe ?? null;
@@ -552,7 +469,7 @@ function appendPreviewProbeDetail(message: string, probe: PreviewInboxProbeResul
     return message;
   }
 
-  return `${message} Preview probe: public CREATE=${formatPrivilege(probe.publicCreate)}, public USAGE=${formatPrivilege(probe.publicUsage)}, capture_entries=${formatPresence(probe.captureEntriesExists)}, raw_assets=${formatPresence(probe.rawAssetsExists)}, items=${formatPresence(probe.itemsExists)}, enrichments=${formatPresence(probe.enrichmentsExists)}, item_groups=${formatPresence(probe.itemGroupsExists)}, item_group_members=${formatPresence(probe.itemGroupMembersExists)}.`;
+  return `${message} Preview probe: public CREATE=${formatPrivilege(probe.publicCreate)}, public USAGE=${formatPrivilege(probe.publicUsage)}, capture_entries=${formatPresence(probe.captureEntriesExists)}, raw_assets=${formatPresence(probe.rawAssetsExists)}, items=${formatPresence(probe.itemsExists)}, enrichments=${formatPresence(probe.enrichmentsExists)}, item_groups=${formatPresence(probe.itemGroupsExists)}, item_group_members=${formatPresence(probe.itemGroupMembersExists)}, inbox_selections=${formatPresence(probe.inboxSelectionsExists)}.`;
 }
 
 async function getUnexpectedUnavailableReason(error: unknown) {
@@ -560,7 +477,7 @@ async function getUnexpectedUnavailableReason(error: unknown) {
     const probe = await loadPreviewInboxProbeResult();
 
     if (probe) {
-      return `Inbox data is temporarily unavailable in this preview environment. Preview probe: public CREATE=${formatPrivilege(probe.publicCreate)}, public USAGE=${formatPrivilege(probe.publicUsage)}, capture_entries=${formatPresence(probe.captureEntriesExists)}, raw_assets=${formatPresence(probe.rawAssetsExists)}, items=${formatPresence(probe.itemsExists)}, enrichments=${formatPresence(probe.enrichmentsExists)}, item_groups=${formatPresence(probe.itemGroupsExists)}, item_group_members=${formatPresence(probe.itemGroupMembersExists)}.`;
+      return `Inbox data is temporarily unavailable in this preview environment. Preview probe: public CREATE=${formatPrivilege(probe.publicCreate)}, public USAGE=${formatPrivilege(probe.publicUsage)}, capture_entries=${formatPresence(probe.captureEntriesExists)}, raw_assets=${formatPresence(probe.rawAssetsExists)}, items=${formatPresence(probe.itemsExists)}, enrichments=${formatPresence(probe.enrichmentsExists)}, item_groups=${formatPresence(probe.itemGroupsExists)}, item_group_members=${formatPresence(probe.itemGroupMembersExists)}, inbox_selections=${formatPresence(probe.inboxSelectionsExists)}.`;
     }
 
     return "Inbox data is temporarily unavailable in this preview environment.";
@@ -625,12 +542,6 @@ function* walkErrorChain(error: unknown): Generator<{
       if (Array.isArray(candidate.errors)) {
         queue.push(...candidate.errors);
       }
-
-      continue;
-    }
-
-    if (typeof current === "string") {
-      yield { message: current };
     }
   }
 }
