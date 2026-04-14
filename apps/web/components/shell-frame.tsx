@@ -1,22 +1,5 @@
 import Link from "next/link";
 
-const ARCHITECTURE_DOMAINS = [
-  "Capture",
-  "Knowledge",
-  "Review",
-] as const;
-
-const ARCHITECTURE_LAYERS = [
-  "Capture Layer",
-  "Normalization Layer",
-  "Knowledge Layer",
-  "Review Layer",
-] as const;
-
-type ArchitectureDomain = (typeof ARCHITECTURE_DOMAINS)[number];
-type ArchitectureLayer = (typeof ARCHITECTURE_LAYERS)[number];
-type ArchitectureName = ArchitectureDomain | ArchitectureLayer;
-
 const shellLinks = [
   { href: "/", label: "Home" },
   { href: "/inbox", label: "Inbox" },
@@ -24,20 +7,13 @@ const shellLinks = [
   { href: "/sources", label: "Sources" },
 ];
 
-function Chip({ label }: { label: ArchitectureName }) {
-  return (
-    <span className="rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-1 text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-      {label}
-    </span>
-  );
-}
-
 export interface ShellFrameProps {
   activeHref: string;
   eyebrow: string;
   title: string;
   description: string;
-  callout: string;
+  sidebarDescription?: string;
+  headerAside?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -46,7 +22,8 @@ export function ShellFrame({
   eyebrow,
   title,
   description,
-  callout,
+  sidebarDescription,
+  headerAside,
   children,
 }: ShellFrameProps) {
   return (
@@ -63,7 +40,7 @@ export function ShellFrame({
                   {eyebrow}
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                  Shared reader shell for the core product surfaces.
+                  {sidebarDescription ?? description}
                 </p>
               </div>
             </div>
@@ -92,50 +69,23 @@ export function ShellFrame({
                 );
               })}
             </nav>
-
-            <section className="space-y-3 rounded-[1.5rem] border border-[var(--border)] bg-[rgba(29,34,28,0.03)] p-4">
-              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
-                Product Model
-              </p>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-[var(--muted)]">Domains</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {ARCHITECTURE_DOMAINS.map((domain) => (
-                      <Chip key={domain} label={domain} />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-[var(--muted)]">Layers</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {ARCHITECTURE_LAYERS.map((layer) => (
-                      <Chip key={layer} label={layer} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(31,107,92,0.08)] p-4 lg:mt-auto">
-              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.28em] text-[var(--accent)]">
-                Reader Rhythm
-              </p>
-              <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">{callout}</p>
-            </div>
           </div>
         </aside>
 
         <section className="min-w-0 overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--panel)] shadow-[0_18px_80px_rgba(29,34,28,0.08)]">
           <div className="border-b border-[var(--border)] px-4 py-4 sm:px-5">
-            <div className="min-w-0">
-              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.3em] text-[var(--warm)]">
-                {eyebrow}
-              </p>
-              <h2 className="mt-2 max-w-3xl font-[family-name:var(--font-display)] text-[1.8rem] leading-tight tracking-[-0.05em] text-[var(--foreground)] sm:text-[2.1rem]">
-                {title}
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">{description}</p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="min-w-0">
+                <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.3em] text-[var(--warm)]">
+                  {eyebrow}
+                </p>
+                <h2 className="mt-2 max-w-3xl font-[family-name:var(--font-display)] text-[1.8rem] leading-tight tracking-[-0.05em] text-[var(--foreground)] sm:text-[2.1rem]">
+                  {title}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">{description}</p>
+              </div>
+
+              {headerAside ? <div className="flex flex-wrap gap-2">{headerAside}</div> : null}
             </div>
           </div>
 

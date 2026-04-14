@@ -15,7 +15,8 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
       eyebrow="Sources"
       title="Register recurring RSS sources and trigger the first capture path."
       description="Add a feed, keep it visible, and run a minimal sync when you need to validate the capture-to-inbox slice."
-      callout="Source status combines the configured source state with the initialized sync-state baseline, and active sources expose a manual sync path for first-slice review."
+      sidebarDescription="Capture setup surface for recurring sources and sync status."
+      headerAside={<ToolbarChip label={`${viewModel.sources.length} total`} />}
     >
       <section className="grid gap-3 xl:grid-cols-[minmax(300px,0.68fr)_minmax(0,1.32fr)]">
         <article className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] p-4">
@@ -95,9 +96,6 @@ export function SourcesPage({ errorMessage, noticeMessage, viewModel }: SourcesP
                 Status and a minimal manual sync action are available for first-slice validation.
               </p>
             </div>
-            <span className="mr-4 shrink-0 rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
-              {viewModel.sources.length} total
-            </span>
           </div>
 
           <div className="border-t border-[var(--border)]">
@@ -227,6 +225,14 @@ function StatusBadge({
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.22em] ${toneClassName}`}>
+      {label}
+    </span>
+  );
+}
+
+function ToolbarChip({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-1.5 text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
       {label}
     </span>
   );

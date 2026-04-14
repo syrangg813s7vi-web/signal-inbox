@@ -13,7 +13,13 @@ export function KnowledgePage({ viewModel }: KnowledgePageProps) {
       eyebrow="Knowledge"
       title="Preserved Notes live here once high-value Items cross the knowledge boundary."
       description="This surface renders persisted Notes and destination sync outcomes. Inbox stays focused on processed Items; Knowledge shows what was preserved."
-      callout="Notes are created inside the Knowledge layer from preservation-worthy Items, then synced to KnowledgeDestination adapters for Notion and Obsidian."
+      sidebarDescription="Reader surface for preserved Notes and destination sync outcomes."
+      headerAside={
+        <>
+          <ToolbarChip label={`${viewModel.notes.length} visible`} />
+          <ToolbarChip label={`${viewModel.destinations.length} destinations`} />
+        </>
+      }
     >
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_280px]">
         <article className="overflow-hidden rounded-[1.5rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)]">
@@ -152,6 +158,14 @@ function Chip({ label, tone }: { label: string; tone: "accent" | "neutral" }) {
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.22em] ${toneClassName}`}>
+      {label}
+    </span>
+  );
+}
+
+function ToolbarChip({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-[var(--border)] bg-[var(--panel-strong)] px-3 py-1.5 text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
       {label}
     </span>
   );

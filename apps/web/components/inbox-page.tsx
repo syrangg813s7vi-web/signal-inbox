@@ -1,13 +1,7 @@
 import Link from "next/link";
 
 import type { InboxItemViewModel, InboxPageViewModel } from "@/server/inbox";
-
-const surfaceLinks = [
-  { href: "/", label: "Home", isActive: false },
-  { href: "/inbox", label: "Inbox", isActive: true },
-  { href: "/knowledge", label: "Knowledge", isActive: false },
-  { href: "/sources", label: "Sources", isActive: false },
-] as const;
+import { ShellFrame } from "./shell-frame";
 
 export interface InboxPageProps {
   viewModel: InboxPageViewModel;
@@ -23,109 +17,35 @@ export function InboxPage({ viewModel }: InboxPageProps) {
   ).size;
 
   return (
-    <main className="min-h-screen px-3 py-3 sm:px-5 sm:py-5 lg:px-8">
-      <div className="mx-auto grid w-full max-w-6xl gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--panel-strong)] lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
-          <div className="flex h-full flex-col gap-5 p-4 sm:p-5">
-            <div className="space-y-2">
-              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.32em] text-[var(--muted)]">
-                Signal Inbox
-              </p>
-              <div>
-                <h1 className="font-[family-name:var(--font-display)] text-[2rem] leading-none tracking-[-0.05em] text-[var(--foreground)]">
-                  Inbox
-                </h1>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                  Compact review surface for persisted Knowledge-layer output.
-                </p>
-              </div>
-            </div>
+    <ShellFrame
+      activeHref="/inbox"
+      eyebrow="Inbox"
+      title="Compact queue for processed Items."
+      description="Minimal reader-style rows over the existing persisted Inbox data path."
+      sidebarDescription="Primary reader surface for processed Item review and fast triage."
+      headerAside={
+        <>
+          <ToolbarChip label={`${viewModel.items.length} visible`} />
+          <ToolbarChip label={`${groupedCount} grouped`} />
+          <ToolbarChip label={`${duplicateCount} duplicates`} />
+          <ToolbarChip label={`${topicCount} topics`} />
+        </>
+      }
+    >
+      {!viewModel.isAvailable && viewModel.unavailableReason ? (
+        <Banner message={viewModel.unavailableReason} tone="warning" />
+      ) : null}
 
-            <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-1">
-              {surfaceLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition ${
-                    link.isActive
-                      ? "border border-[rgba(31,107,92,0.2)] bg-[rgba(31,107,92,0.12)] text-[var(--accent)]"
-                      : "text-[var(--foreground)] hover:bg-[rgba(29,34,28,0.05)]"
-                  }`}
-                >
-                  <span>{link.label}</span>
-                  {link.isActive ? (
-                    <span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em]">
-                      Now
-                    </span>
-                  ) : null}
-                </Link>
-              ))}
-            </nav>
-
-            <section className="space-y-3 rounded-[1.5rem] border border-[var(--border)] bg-[rgba(29,34,28,0.03)] p-4">
-              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
-                Queue Profile
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <SidebarMetric label="Visible now" value={viewModel.items.length.toString()} />
-                <SidebarMetric label="Topic clusters" value={groupedCount.toString()} />
-                <SidebarMetric label="Duplicates" value={duplicateCount.toString()} />
-                <SidebarMetric label="Active topics" value={topicCount.toString()} />
-              </div>
-            </section>
-
-            <div className="rounded-[1.5rem] border border-[var(--border)] bg-[rgba(31,107,92,0.08)] p-4 lg:mt-auto">
-              <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.28em] text-[var(--accent)]">
-                Reading Flow
-              </p>
-              <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">
-                Scan the preview, title, and short summary in one pass before deciding what deserves deeper reading.
-              </p>
-            </div>
-          </div>
-        </aside>
-
-        <section className="min-w-0 overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--panel)] shadow-[0_18px_80px_rgba(29,34,28,0.08)]">
-          <div className="border-b border-[var(--border)] px-4 py-4 sm:px-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div className="min-w-0">
-                <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.3em] text-[var(--warm)]">
-                  Review Layer
-                </p>
-                <h2 className="mt-2 font-[family-name:var(--font-display)] text-[1.8rem] leading-tight tracking-[-0.05em] text-[var(--foreground)] sm:text-[2.1rem]">
-                  Compact queue for processed Items.
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-                  Minimal reader-style rows over the existing persisted Inbox data path.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <ToolbarChip label={`${viewModel.items.length} visible`} />
-                <ToolbarChip label={`${groupedCount} grouped`} />
-                <ToolbarChip label={`${duplicateCount} duplicates`} />
-              </div>
-            </div>
-
-            {!viewModel.isAvailable && viewModel.unavailableReason ? (
-              <Banner message={viewModel.unavailableReason} tone="warning" />
-            ) : null}
-          </div>
-
-          <div className="px-3 py-3 sm:px-4">
-            {viewModel.items.length === 0 ? (
-              <EmptyState isAvailable={viewModel.isAvailable} />
-            ) : (
-              <div className="space-y-2">
-                {viewModel.items.map((item) => (
-                  <InboxListRow key={item.id} item={item} />
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-    </main>
+      {viewModel.items.length === 0 ? (
+        <EmptyState isAvailable={viewModel.isAvailable} />
+      ) : (
+        <div className="space-y-2">
+          {viewModel.items.map((item) => (
+            <InboxListRow key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+    </ShellFrame>
   );
 }
 
@@ -202,17 +122,6 @@ function EmptyState({ isAvailable }: { isAvailable: boolean }) {
       {isAvailable
         ? "No processed Items are available yet. Once capture and normalization produce Items, the Knowledge pipeline will populate this reading list."
         : "The route loaded, but processed Items are unavailable in this environment."}
-    </div>
-  );
-}
-
-function SidebarMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-[1rem] border border-[var(--border)] bg-[rgba(255,255,255,0.35)] px-3 py-2.5">
-      <span className="text-sm text-[var(--muted)]">{label}</span>
-      <span className="font-[family-name:var(--font-mono)] text-xs uppercase tracking-[0.22em] text-[var(--foreground)]">
-        {value}
-      </span>
     </div>
   );
 }

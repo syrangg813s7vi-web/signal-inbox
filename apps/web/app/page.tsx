@@ -9,7 +9,7 @@ export default function HomePage() {
       eyebrow="Home"
       title="Start from the quietest summary, then step into Inbox, Knowledge, or Sources."
       description="Home stays intentionally minimal. It should orient the product, surface the current operating areas, and hand off quickly to the primary reader surfaces."
-      callout="Keep Home result-first and low-noise. The heavier scanning work still belongs to Inbox."
+      sidebarDescription="Quiet handoff surface for the primary reader routes."
     >
       <section className="space-y-2">
         <HomeRouteRow
