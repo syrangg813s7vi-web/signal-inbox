@@ -13,6 +13,7 @@ The goal is consistency, readability, and low decision overhead for both human c
 - prefer small focused changes over broad rewrites
 - prefer stable naming over introducing new synonyms
 - keep the code aligned with the product principle of low friction
+- keep a PR coherent rather than stacking avoidable repair commits for regressions introduced earlier in the same PR
 
 ## Core Naming Rules
 
@@ -197,6 +198,33 @@ Vercel-specific constraints:
 - keep data fetching out of presentational leaf components
 - avoid large page files with mixed query, mutation, and rendering logic
 - prefer simple props over implicit context unless context is clearly justified
+
+## Frontend Surface Style
+
+- keep backend data shaping and frontend presentation separate
+- use server-side view-model builders for page-specific display contracts
+- do not let page components read or reinterpret raw persistence records directly
+- prefer one stable page view model per surface over repeated ad hoc field mapping in many components
+
+Inbox-specific UI rules:
+
+- treat Inbox as a reader-style surface, not a dashboard
+- prefer dense rows over large stacked cards
+- use a dedicated Inbox shell when the page needs a reading-oriented layout rather than reusing a generic dashboard shell
+- make the primary hierarchy:
+  - title
+  - excerpt
+  - source and topic metadata
+  - date
+- keep actions secondary and compact
+- preserve high information density without horizontal overflow
+
+Layout resilience rules:
+
+- long content must not push the page outside the viewport
+- list rows and metadata containers should be built to tolerate long URLs, source labels, and tags
+- use truncation, line clamping, and bounded flex layouts intentionally
+- desktop and mobile may differ in navigation structure, but should preserve the same row-first reading model
 
 ## Database and Data Access Style
 
@@ -577,6 +605,9 @@ If validation cannot be completed, note that clearly in the final summary or fol
 - one commit should represent one coherent change
 - do not mix unrelated work into the same commit
 - if a change updates docs because behavior changed, prefer including doc updates in the same commit
+- if a commit in the current PR introduces a regression, repair it before treating the PR as review-ready again
+- do not let a PR turn into a chain where each commit only repairs the immediately previous commit's avoidable breakage
+- when review finds a regression introduced by the current PR, the expected outcome is a coherent repaired PR state, not a growing stack of self-inflicted follow-up fixes
 
 Examples:
 

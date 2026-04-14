@@ -137,6 +137,22 @@ Minimal landing page. Shows the most important things to review now.
 
 Primary input-processing surface. Shows processed Items, not raw feeds.
 
+Inbox design rules:
+
+- Inbox should behave like a compact reader or library surface, not a dashboard of large cards
+- the first-class desktop structure is:
+  - left navigation rail
+  - top collection header with tabs and sort controls
+  - dense processed-item list rows
+- each Inbox row should emphasize:
+  - title
+  - short summary or excerpt
+  - source metadata
+  - moved or published date
+- the Inbox should optimize for scan speed and information density over decorative chrome
+- long URLs, source references, and metadata must stay inside bounds without horizontal overflow
+- mobile should collapse the navigation structure, but should not fall back to oversized card presentation
+
 ### Knowledge
 
 Shows Notes created from high-value Items and makes the knowledge layer visible.
@@ -186,6 +202,24 @@ Advanced controls must be hidden from the main flow.
 ### Quiet Interface
 
 The interface should feel calm, focused, and low-noise. Home should not behave like an admin dashboard.
+
+### Reader-Style Inbox
+
+Inbox should feel closer to a reader or reading queue than a control panel.
+
+The intended interaction model is:
+
+- open Inbox
+- scan a dense list of processed results
+- decide quickly what deserves attention
+- preserve high-value material into Knowledge later
+
+This means Inbox should prefer:
+
+- compact rows over stacked cards
+- stable metadata hierarchy over decorative panels
+- list readability over dashboard widgets
+- predictable spacing and truncation over free-form content blocks
 
 ## Core User Flow
 
