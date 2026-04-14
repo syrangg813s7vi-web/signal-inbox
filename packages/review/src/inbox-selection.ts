@@ -17,11 +17,17 @@ type DatabaseTransaction = Parameters<
   Parameters<ReturnType<typeof createDbFromClient>["transaction"]>[0]
 >[0];
 
-const INBOX_SELECTION_POLICY_VERSION = "v1";
-const INBOX_SELECTION_BUDGET = 12;
-const INBOX_SELECTION_CANDIDATE_LIMIT = 48;
+const INBOX_SELECTION_POLICY_VERSION = "v2";
+const INBOX_SELECTION_BUDGET = 8;
+const INBOX_SELECTION_CANDIDATE_LIMIT = 64;
 const INBOX_SELECTION_MAX_PER_TOPIC = 2;
-const INBOX_SELECTION_MAX_PER_SOURCE = 4;
+const INBOX_SELECTION_MAX_PER_SOURCE = 3;
+const INBOX_SELECTION_MIN_REVIEW_SCORE = 0.62;
+
+interface VisibleContentAssessment {
+  contentIsMeaningful: boolean;
+  summaryIsMeaningful: boolean;
+}
 
 export interface InboxCandidate {
   classification: string | null;
@@ -284,7 +290,18 @@ async function loadInboxCandidates(tx: DatabaseTransaction): Promise<InboxCandid
         isNotNull(enrichments.itemId),
       ),
     )
-    .orderBy(desc(enrichments.importanceScore), desc(items.publishedAt), desc(items.createdAt))
+    .orderBy(
+      desc(
+        sql<number>`
+          (
+            coalesce(${enrichments.importanceScore}, 0) * 0.65 +
+            coalesce(${enrichments.noveltyScore}, 0) * 0.35
+          )
+        `,
+      ),
+      desc(items.publishedAt),
+      desc(items.createdAt),
+    )
     .limit(INBOX_SELECTION_CANDIDATE_LIMIT);
 
   return rows.map((row) => mapCandidateRow(row));
@@ -341,11 +358,14 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
     scoreBreakdown: InboxSelectionScoreBreakdown;
     topicKey: string;
     sourceKey: string;
+    titleTokens: string[];
+    visibleContent: VisibleContentAssessment;
   }> = [];
 
   for (const candidate of candidates) {
-    const hardFilterReasons = getHardFilterReasons(candidate);
     const scoreBreakdown = scoreCandidate(candidate);
+    const visibleContent = assessVisibleContent(candidate);
+    const hardFilterReasons = getHardFilterReasons(candidate, scoreBreakdown, visibleContent);
 
     if (hardFilterReasons.length > 0) {
       decisionsByItemId.set(
@@ -356,6 +376,7 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
           scoreBreakdown,
           selected: false,
           stage: "hard_filter",
+          visibleContent,
         }),
       );
       continue;
@@ -363,13 +384,15 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
 
     scoredCandidates.push({
       candidate,
-      reasons: getSelectionReasons(candidate, scoreBreakdown),
+      reasons: getSelectionReasons(candidate, scoreBreakdown, visibleContent),
       scoreBreakdown,
       sourceKey: normalizeBucketKey(candidate.sourceName, "unknown-source"),
+      titleTokens: tokenizeTitle(candidate.title),
       topicKey: normalizeBucketKey(
         candidate.topicGroupTitle ?? candidate.topic ?? candidate.classification,
         "unknown-topic",
       ),
+      visibleContent,
     });
   }
 
@@ -383,6 +406,7 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
 
   const topicCounts = new Map<string, number>();
   const sourceCounts = new Map<string, number>();
+  const selectedTitleTokenSets: string[][] = [];
   let selectedCount = 0;
 
   for (const entry of scoredCandidates) {
@@ -398,6 +422,22 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
           scoreBreakdown: entry.scoreBreakdown,
           selected: false,
           stage: "budget",
+          visibleContent: entry.visibleContent,
+        }),
+      );
+      continue;
+    }
+
+    if (isNearDuplicateTitle(entry.titleTokens, selectedTitleTokenSets)) {
+      decisionsByItemId.set(
+        entry.candidate.id,
+        buildDecision({
+          candidate: entry.candidate,
+          reasons: ["near_duplicate_title"],
+          scoreBreakdown: entry.scoreBreakdown,
+          selected: false,
+          stage: "diversity",
+          visibleContent: entry.visibleContent,
         }),
       );
       continue;
@@ -412,6 +452,7 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
           scoreBreakdown: entry.scoreBreakdown,
           selected: false,
           stage: "diversity",
+          visibleContent: entry.visibleContent,
         }),
       );
       continue;
@@ -426,6 +467,7 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
           scoreBreakdown: entry.scoreBreakdown,
           selected: false,
           stage: "diversity",
+          visibleContent: entry.visibleContent,
         }),
       );
       continue;
@@ -434,6 +476,7 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
     selectedCount += 1;
     topicCounts.set(entry.topicKey, topicCount + 1);
     sourceCounts.set(entry.sourceKey, sourceCount + 1);
+    selectedTitleTokenSets.push(entry.titleTokens);
     decisionsByItemId.set(
       entry.candidate.id,
       buildDecision({
@@ -447,6 +490,7 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
         scoreBreakdown: entry.scoreBreakdown,
         selected: true,
         stage: "selected",
+        visibleContent: entry.visibleContent,
       }),
     );
   }
@@ -456,11 +500,13 @@ function selectInboxCandidates(candidates: InboxCandidate[]): InboxSelectionDeci
     .filter((decision): decision is InboxSelectionDecision => Boolean(decision));
 }
 
-function getHardFilterReasons(candidate: InboxCandidate) {
+function getHardFilterReasons(
+  candidate: InboxCandidate,
+  scoreBreakdown: InboxSelectionScoreBreakdown,
+  visibleContent: VisibleContentAssessment,
+) {
   const reasons: string[] = [];
   const title = normalizeWhitespace(candidate.title ?? "");
-  const summary = normalizeWhitespace(candidate.summaryShort ?? candidate.summaryLong ?? "");
-  const content = normalizeWhitespace(candidate.contentText ?? "");
   const importanceScore = candidate.importanceScore ?? 0;
   const noveltyScore = candidate.noveltyScore ?? 0;
 
@@ -476,16 +522,24 @@ function getHardFilterReasons(candidate: InboxCandidate) {
     reasons.push("missing_title");
   }
 
-  if (!summary && content.length < 160) {
-    reasons.push("incomplete_content");
+  if (!visibleContent.summaryIsMeaningful && !visibleContent.contentIsMeaningful) {
+    reasons.push("no_meaningful_visible_content");
   }
 
   if (candidate.importanceScore === null || candidate.noveltyScore === null) {
     reasons.push("missing_signal_scores");
   }
 
-  if (importanceScore < 0.35 && noveltyScore < 0.35) {
+  if (importanceScore < 0.4 && noveltyScore < 0.45) {
     reasons.push("low_signal_scores");
+  }
+
+  if (scoreBreakdown.totalScore < INBOX_SELECTION_MIN_REVIEW_SCORE) {
+    reasons.push("below_review_threshold");
+  }
+
+  if (isRoundupLikeTitle(title) && scoreBreakdown.totalScore < 0.72) {
+    reasons.push("roundup_low_review_value");
   }
 
   return reasons;
@@ -495,26 +549,31 @@ function scoreCandidate(candidate: InboxCandidate): InboxSelectionScoreBreakdown
   const importanceScore = clampScore(candidate.importanceScore ?? 0);
   const noveltyScore = clampScore(candidate.noveltyScore ?? 0);
   let qualityAdjustment = 0;
-  const title = normalizeWhitespace(candidate.title ?? "").toLowerCase();
+  const title = normalizeWhitespace(candidate.title ?? "");
   const summary = normalizeWhitespace(candidate.summaryShort ?? candidate.summaryLong ?? "");
+  const visibleContent = assessVisibleContent(candidate);
 
-  if (summary) {
-    qualityAdjustment += 0.03;
+  if (visibleContent.summaryIsMeaningful) {
+    qualityAdjustment += 0.02;
   }
 
-  if (candidate.whyItMatters?.trim()) {
-    qualityAdjustment += 0.05;
+  if (hasMeaningfulWhyItMatters(candidate.whyItMatters)) {
+    qualityAdjustment += 0.04;
   }
 
   if (candidate.topicGroupTitle?.trim()) {
-    qualityAdjustment += 0.03;
+    qualityAdjustment += 0.02;
   }
 
-  if (/(roundup|linkdump|daily digest|weekly digest|briefing)/i.test(title)) {
-    qualityAdjustment -= 0.08;
+  if (!visibleContent.summaryIsMeaningful) {
+    qualityAdjustment -= 0.04;
   }
 
-  if (summary && title && summary.toLowerCase() === title) {
+  if (isRoundupLikeTitle(title)) {
+    qualityAdjustment -= 0.12;
+  }
+
+  if (summary && title && summary.localeCompare(title, undefined, { sensitivity: "accent" }) === 0) {
     qualityAdjustment -= 0.04;
   }
 
@@ -529,8 +588,13 @@ function scoreCandidate(candidate: InboxCandidate): InboxSelectionScoreBreakdown
 function getSelectionReasons(
   candidate: InboxCandidate,
   scoreBreakdown: InboxSelectionScoreBreakdown,
+  visibleContent: VisibleContentAssessment,
 ) {
   const reasons: string[] = [];
+
+  if (scoreBreakdown.totalScore >= 0.85) {
+    reasons.push("top_review_value");
+  }
 
   if (scoreBreakdown.importanceScore >= 0.7) {
     reasons.push("high_importance");
@@ -540,8 +604,12 @@ function getSelectionReasons(
     reasons.push("high_novelty");
   }
 
-  if (scoreBreakdown.qualityAdjustment > 0) {
-    reasons.push("quality_adjusted");
+  if (visibleContent.summaryIsMeaningful) {
+    reasons.push("meaningful_summary");
+  }
+
+  if (hasMeaningfulWhyItMatters(candidate.whyItMatters)) {
+    reasons.push("why_it_matters_present");
   }
 
   if (candidate.topicGroupTitle?.trim()) {
@@ -561,18 +629,24 @@ function buildDecision(input: {
   scoreBreakdown: InboxSelectionScoreBreakdown;
   selected: boolean;
   stage: "budget" | "diversity" | "hard_filter" | "selected";
+  visibleContent: VisibleContentAssessment;
 }) {
   return {
     itemId: input.candidate.id,
     metadata: {
+      candidateBudget: INBOX_SELECTION_BUDGET,
       candidateWindow: INBOX_SELECTION_CANDIDATE_LIMIT,
       duplicateOfItemId: input.candidate.duplicateOfItemId,
       importanceScore: input.scoreBreakdown.importanceScore,
+      maxPerSource: INBOX_SELECTION_MAX_PER_SOURCE,
+      maxPerTopic: INBOX_SELECTION_MAX_PER_TOPIC,
       noveltyScore: input.scoreBreakdown.noveltyScore,
       policyStage: input.stage,
       qualityAdjustment: input.scoreBreakdown.qualityAdjustment,
       sourceName: input.candidate.sourceName,
       topicGroupTitle: input.candidate.topicGroupTitle,
+      visibleBodyEligible: input.visibleContent.contentIsMeaningful,
+      visibleSummaryEligible: input.visibleContent.summaryIsMeaningful,
     },
     policyVersion: INBOX_SELECTION_POLICY_VERSION,
     relevanceScore: input.scoreBreakdown.totalScore,
@@ -626,6 +700,105 @@ function normalizeBucketKey(value: string | null | undefined, fallback: string) 
   const normalized = normalizeWhitespace(value ?? "").toLowerCase();
 
   return normalized || fallback;
+}
+
+function assessVisibleContent(candidate: InboxCandidate): VisibleContentAssessment {
+  const summary = normalizeWhitespace(candidate.summaryShort ?? candidate.summaryLong ?? "");
+  const content = normalizeWhitespace(candidate.contentText ?? "");
+
+  return {
+    contentIsMeaningful: hasMeaningfulBodyContent(content),
+    summaryIsMeaningful: isMeaningfulSummary({
+      summary,
+      title: normalizeWhitespace(candidate.title ?? ""),
+    }),
+  };
+}
+
+function hasMeaningfulBodyContent(content: string) {
+  if (content.length < 280) {
+    return false;
+  }
+
+  return countMeaningfulWords(content.slice(0, 360)) >= 40;
+}
+
+function hasMeaningfulWhyItMatters(value: string | null | undefined) {
+  const normalized = normalizeWhitespace(value ?? "");
+
+  return normalized.length >= 24 && countMeaningfulWords(normalized) >= 4;
+}
+
+function isMeaningfulSummary(input: { summary: string; title: string }) {
+  if (!input.summary || input.summary.length < 40) {
+    return false;
+  }
+
+  if (countMeaningfulWords(input.summary) < 6) {
+    return false;
+  }
+
+  if (
+    input.title &&
+    input.summary.localeCompare(input.title, undefined, { sensitivity: "accent" }) === 0
+  ) {
+    return false;
+  }
+
+  if (
+    input.title &&
+    new RegExp(`^${escapeRegExp(input.title)}\\s*[:\\-\\u2013\\u2014]\\s+`, "i").test(input.summary)
+  ) {
+    return false;
+  }
+
+  return !isGreetingLikeCandidate(input.summary) && !isPromoLikeCandidate(input.summary);
+}
+
+function countMeaningfulWords(value: string) {
+  return value.split(/\s+/).filter((part) => /[\p{L}\p{N}]/u.test(part)).length;
+}
+
+function tokenizeTitle(title: string | null | undefined) {
+  const tokens = normalizeWhitespace(title ?? "")
+    .toLowerCase()
+    .match(/[\p{L}\p{N}]+/gu);
+
+  if (!tokens) {
+    return [];
+  }
+
+  return tokens.filter((token) => token.length > 1);
+}
+
+function isNearDuplicateTitle(candidateTitleTokens: string[], selectedTitleTokenSets: string[][]) {
+  if (candidateTitleTokens.length < 3) {
+    return false;
+  }
+
+  return selectedTitleTokenSets.some((selectedTokens) => {
+    if (selectedTokens.length < 3) {
+      return false;
+    }
+
+    return candidateTitleTokens.slice(0, 3).every((token, index) => selectedTokens[index] === token);
+  });
+}
+
+function isGreetingLikeCandidate(candidate: string) {
+  return /^(hi|hello|hey|good (morning|afternoon|evening)|dear)\b/i.test(candidate);
+}
+
+function isPromoLikeCandidate(candidate: string) {
+  return /^listen to this update\b/i.test(candidate);
+}
+
+function isRoundupLikeTitle(title: string) {
+  return /(roundup|linkdump|daily digest|weekly digest|briefing)/i.test(title);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeWhitespace(value: string) {
