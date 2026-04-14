@@ -1,14 +1,6 @@
 import { bootstrapInboxStorageSchema } from "@signal-inbox/db";
-import {
-  createRssSource,
-  deleteSource,
-  pauseSource,
-  reactivateSource,
-  SourceConflictError,
-  SourceNotFoundError,
-  SourceSyncValidationError,
-  SourceValidationError,
-} from "@signal-inbox/capture";
+import { SubmittedUrlValidationError } from "@signal-inbox/capture";
+
 import { isStorageUnavailableError, withSourceStorageReady } from "./sources";
 
 class InboxStorageBootstrapActionError extends Error {
@@ -18,88 +10,61 @@ class InboxStorageBootstrapActionError extends Error {
   }
 }
 
-export async function createRssSourceFromFormData(formData: FormData) {
-  return withSourceStorageReady(() =>
-    createRssSource({
-      name: String(formData.get("name") ?? ""),
-      sourceUrl: String(formData.get("sourceUrl") ?? ""),
-      topic: String(formData.get("topic") ?? ""),
-    }),
-  );
-}
-
-export async function pauseSourceById(sourceId: string) {
-  return withSourceStorageReady(() => pauseSource(sourceId));
-}
-
-export async function reactivateSourceById(sourceId: string) {
-  return withSourceStorageReady(() => reactivateSource(sourceId));
-}
-
-export async function deleteSourceById(sourceId: string) {
-  return withSourceStorageReady(() => deleteSource(sourceId));
-}
-
-export async function syncSourceById(sourceId: string) {
+export async function ingestSubmittedUrl(submittedUrl: string) {
   return withSourceStorageReady(async () => {
-    const { runRssSourceSyncJob } = await import("@signal-inbox/core");
+    const { runSubmittedUrlIngestJob } = await import("@signal-inbox/core");
 
     if (process.env.VERCEL_ENV === "preview") {
       try {
         await bootstrapInboxStorageSchema();
       } catch (error) {
-        throw new InboxStorageBootstrapActionError(
-          getInboxStorageBootstrapActionMessage(error),
-          { cause: error },
-        );
+        throw new InboxStorageBootstrapActionError(getBootstrapActionMessage(error), {
+          cause: error,
+        });
       }
     }
 
-    return runRssSourceSyncJob({
-      sourceId,
-      triggerRef: `web-manual-sync:${sourceId}`,
+    return runSubmittedUrlIngestJob({
+      submittedUrl,
+      triggerRef: "web:url-ingest",
     });
   });
 }
 
-export function getMutationErrorMessage(error: unknown): string {
-  if (
-    error instanceof SourceValidationError ||
-    error instanceof SourceConflictError ||
-    error instanceof SourceNotFoundError ||
-    error instanceof SourceSyncValidationError
-  ) {
+export function getUrlIngestErrorMessage(error: unknown): string {
+  if (error instanceof SubmittedUrlValidationError) {
     return error.message;
   }
 
   if (isStorageUnavailableError(error)) {
-    return "Source storage is unavailable in this environment.";
+    return "Capture storage is unavailable in this environment.";
   }
 
   if (error instanceof InboxStorageBootstrapActionError) {
     return error.message;
   }
 
-  if (isSourceSyncError(error)) {
+  if (isSubmittedUrlIngestError(error)) {
     return error.message;
   }
 
-  return "The source update could not be completed.";
+  return "The submitted URL could not be ingested.";
 }
 
-function isSourceSyncError(
+function isSubmittedUrlIngestError(
   error: unknown,
 ): error is {
   message: string;
-  name: "SourceSyncJobError" | "SourceSyncPostProcessingError";
+  name: "SubmittedUrlIngestJobError" | "SubmittedUrlIngestPostProcessingError";
 } {
   return (
     error instanceof Error &&
-    (error.name === "SourceSyncJobError" || error.name === "SourceSyncPostProcessingError")
+    (error.name === "SubmittedUrlIngestJobError" ||
+      error.name === "SubmittedUrlIngestPostProcessingError")
   );
 }
 
-function getInboxStorageBootstrapActionMessage(error: unknown) {
+function getBootstrapActionMessage(error: unknown) {
   for (const candidate of walkErrorChain(error)) {
     const normalizedMessage = normalizeMessage(candidate.message);
 
@@ -108,7 +73,7 @@ function getInboxStorageBootstrapActionMessage(error: unknown) {
     }
 
     if (normalizedMessage.includes('permission denied to create extension "pgcrypto"')) {
-      return "Inbox storage bootstrap failed in this preview environment because the database role cannot install `pgcrypto`. Preinstall `pgcrypto` or expose `gen_random_uuid()` before running `Sync now` again.";
+      return "Inbox storage bootstrap failed in this preview environment because the database role cannot install `pgcrypto`. Preinstall `pgcrypto` or expose `gen_random_uuid()` before trying the URL ingest endpoint again.";
     }
 
     if (
@@ -127,7 +92,7 @@ function getInboxStorageBootstrapActionMessage(error: unknown) {
     }
   }
 
-  return "Inbox storage bootstrap failed in this preview environment. Run the database migrations for this environment or fix preview database permissions before using `Sync now`.";
+  return "Inbox storage bootstrap failed in this preview environment. Run the database migrations for this environment or fix preview database permissions before trying the URL ingest endpoint again.";
 }
 
 function appendSupplementalErrorText(

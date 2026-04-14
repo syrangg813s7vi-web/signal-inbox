@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import http from "node:http";
 import { randomUUID } from "node:crypto";
 
+import type { KnowledgeEnrichmentRunner } from "@signal-inbox/ai";
 import {
   captureEntries,
   createDbFromClient,
@@ -15,8 +17,33 @@ import {
   sources,
   startTemporaryPostgres,
 } from "@signal-inbox/db";
+import { runNormalizeRawAssetJob, runProcessItemJob, runSubmittedUrlIngestJob } from "@signal-inbox/core";
 
 import { getInboxPageViewModel } from "./inbox";
+
+const inboxSmokeKnowledgeEnrichmentRunner: KnowledgeEnrichmentRunner = async ({ config, item }) => ({
+  config,
+  output: {
+    classification: {
+      label: "research",
+      topic: item.sourceTopic ?? "AI",
+    },
+    importanceScore: 0.7,
+    keyPoints: [
+      "The ingested article completed the shared URL capture path.",
+      "The processed Item should remain visible on the Inbox surface.",
+    ],
+    noteDraft: null,
+    noveltyScore: 0.7,
+    preserveRecommendation: "review",
+    summary: {
+      long: "The direct URL ingest path should continue into Inbox without being hidden behind older queue entries.",
+      short: "Direct URL ingest should remain visible in Inbox.",
+    },
+    tags: ["research", "capture", "url"],
+    whyItMatters: "The Inbox surface needs to expose newly processed direct URL submissions.",
+  },
+});
 
 async function main() {
   const temporaryPostgres = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
@@ -94,6 +121,26 @@ async function main() {
       "I recently switched from a Fedora laptop to a MacBook Air and built a taskbar-style dock replacement to keep my workflow intact.",
     );
     assert.equal(singleMembershipItem.sourceName, "Inbox Smoke Feed");
+
+    for (let index = 0; index < 24; index += 1) {
+      await createProcessedItem(db, {
+        contentText: `Historical queue item ${index + 1} explanation.`,
+        publishedAt: new Date(`2026-03-${String((index % 28) + 1).padStart(2, "0")}T10:00:00.000Z`),
+        sourceId,
+        summaryShort: `Historical queue item ${index + 1} summary`,
+        title: `Historical queue item ${index + 1}`,
+        topic: "AI",
+        topicGroupTitles: [],
+      });
+    }
+
+    const ingestedItem = await ingestSubmittedUrlItem(databaseUrl);
+    const viewModelAfterUrlIngest = await getInboxPageViewModel();
+    const inboxIngestedItem = viewModelAfterUrlIngest.items.find((item) => item.id === ingestedItem.itemId);
+
+    assert.ok(inboxIngestedItem, "Direct URL-ingested Items should remain visible in Inbox.");
+    assert.equal(inboxIngestedItem.title, "Inbox direct URL ingest article");
+    assert.equal(inboxIngestedItem.url, ingestedItem.submittedUrl);
 
     console.log("Inbox smoke test passed.");
   } finally {
@@ -199,6 +246,74 @@ async function createProcessedItem(
   }
 
   return item.id;
+}
+
+async function ingestSubmittedUrlItem(databaseUrl: string) {
+  const server = http.createServer((request, response) => {
+    if (request.url === "/article") {
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(`<!doctype html>
+<html lang="en">
+  <head>
+    <title>Inbox direct URL ingest article</title>
+    <meta property="article:published_time" content="2026-04-14T03:00:00.000Z" />
+  </head>
+  <body>
+    <article>
+      <h1>Inbox direct URL ingest article</h1>
+      <p>This article validates that direct URL submissions remain visible in the Inbox queue.</p>
+      <p>It references AI agents and orchestration to exercise the shared knowledge pipeline.</p>
+      <p>${"content ".repeat(200)}</p>
+    </article>
+  </body>
+</html>`);
+      return;
+    }
+
+    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    response.end("not found");
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+
+  assert.ok(address && typeof address !== "string");
+
+  try {
+    const submittedUrl = `http://127.0.0.1:${address.port}/article`;
+    const result = await runSubmittedUrlIngestJob({
+      databaseUrl,
+      submittedUrl,
+      triggerRef: "inbox-smoke:url-ingest",
+      normalizeRawAssetJobRunner: ({ databaseUrl: jobDatabaseUrl, rawAssetId }) =>
+        runNormalizeRawAssetJob({
+          databaseUrl: jobDatabaseUrl,
+          rawAssetId,
+          processItemJobRunner: ({ databaseUrl: processDatabaseUrl, itemId }) =>
+            runProcessItemJob({
+              databaseUrl: processDatabaseUrl,
+              itemId,
+              knowledgeEnrichmentRunner: inboxSmokeKnowledgeEnrichmentRunner,
+            }),
+        }),
+    });
+
+    return {
+      itemId: result.processedItemIds[0]!,
+      submittedUrl,
+    };
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
 }
 
 void main().catch((error) => {

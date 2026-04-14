@@ -37,3 +37,9 @@ export {
   SourceSyncPostProcessingError,
   type RunRssSourceSyncJobInput,
 } from "./capture-sync-job";
+export {
+  runSubmittedUrlIngestJob,
+  SubmittedUrlIngestJobError,
+  SubmittedUrlIngestPostProcessingError,
+  type RunSubmittedUrlIngestJobInput,
+} from "./url-ingest-job";

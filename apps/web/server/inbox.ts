@@ -168,7 +168,7 @@ async function loadInboxRows() {
       .leftJoin(sources, eq(sources.id, captureEntries.sourceId))
       .leftJoin(topicGroupTitles, eq(topicGroupTitles.itemId, items.id))
       .where(and(eq(items.status, "processed"), eq(enrichments.isCurrent, true), isNotNull(enrichments.itemId)))
-      .orderBy(desc(enrichments.importanceScore), desc(items.publishedAt), desc(items.createdAt))
+      .orderBy(desc(items.createdAt), desc(enrichments.importanceScore), desc(items.publishedAt))
       .limit(24);
   } finally {
     await client.end();

@@ -6,6 +6,7 @@
   "scripts": {
     "capture-sync:smoke": "tsx src/rss-sync-smoke-test.ts",
     "knowledge-enrichment:smoke": "tsx src/model-backed-enrichment-smoke-test.ts",
+    "url-ingest:smoke": "tsx src/url-ingest-smoke-test.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {

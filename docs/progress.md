@@ -215,6 +215,7 @@ Phase 4 is complete when:
 - V1 capture inputs are:
   - rss
   - manual_link
+  - direct URL submission
 - V1 knowledge sinks are:
   - notion
   - obsidian

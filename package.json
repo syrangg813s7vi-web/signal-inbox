@@ -11,6 +11,7 @@
     "build": "pnpm --filter @signal-inbox/web build",
     "start": "pnpm --filter @signal-inbox/web start",
     "capture-sync:smoke": "pnpm --filter @signal-inbox/core capture-sync:smoke",
+    "url-ingest:smoke": "pnpm --filter @signal-inbox/core url-ingest:smoke",
     "knowledge-enrichment:smoke": "pnpm --filter @signal-inbox/core knowledge-enrichment:smoke",
     "inbox:smoke": "pnpm --filter @signal-inbox/web inbox:smoke",
     "knowledge:smoke": "pnpm --filter @signal-inbox/web knowledge:smoke",
