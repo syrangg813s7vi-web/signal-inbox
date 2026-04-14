@@ -74,3 +74,16 @@ CI expectation:
 
 - provide `DATABASE_URL` that points at the CI job's temporary or disposable PostgreSQL database
 - do not point the smoke test at a shared long-lived database
+
+## Knowledge Enrichment Runtime
+
+`KNOWLEDGE_ENRICHMENT_TIMEOUT_MS` remains the explicit override for model-backed enrichment timeouts.
+
+When that env var is unset, Signal Inbox now resolves timeout defaults from the AI configuration boundary:
+
+- OpenAI-compatible `glm-*` models and `*.bigmodel.cn` endpoints default to `60000` ms
+- other OpenAI-compatible endpoints default to `15000` ms
+
+For backwards compatibility, a legacy configured value of `15000` is also promoted to the GLM-safe default when the runtime is using a GLM-compatible model or `*.bigmodel.cn` endpoint. Any other explicit timeout value still wins.
+
+This is intended to avoid misdiagnosing slower GLM-backed enrichment runs as broken API credentials or provider connectivity failures.

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 
 import type { KnowledgeEnrichmentConfig, KnowledgeEnrichmentRunner } from "@signal-inbox/ai";
-import { validateKnowledgeEnrichmentOutput } from "@signal-inbox/ai";
+import { resolveKnowledgeEnrichmentConfig, validateKnowledgeEnrichmentOutput } from "@signal-inbox/ai";
 import {
   captureEntries,
   createDbFromClient,
@@ -27,6 +27,42 @@ async function main() {
   const databaseUrl = temporaryPostgres?.databaseUrl ?? process.env.DATABASE_URL;
 
   assert.ok(databaseUrl, "DATABASE_URL must be set or a temporary PostgreSQL instance must start.");
+
+  const glmDefaultConfig = resolveKnowledgeEnrichmentConfig(
+    {},
+    {
+      KNOWLEDGE_ENRICHMENT_BASE_URL: "https://open.bigmodel.cn/api/paas/v4/",
+      KNOWLEDGE_ENRICHMENT_MODEL: "glm-4.5-flash",
+    },
+  );
+  const genericDefaultConfig = resolveKnowledgeEnrichmentConfig(
+    {},
+    {
+      KNOWLEDGE_ENRICHMENT_BASE_URL: "https://api.openai.com/v1/",
+      KNOWLEDGE_ENRICHMENT_MODEL: "gpt-4o-mini-2024-07-18",
+    },
+  );
+  const overriddenTimeoutConfig = resolveKnowledgeEnrichmentConfig(
+    {},
+    {
+      KNOWLEDGE_ENRICHMENT_BASE_URL: "https://open.bigmodel.cn/api/paas/v4/",
+      KNOWLEDGE_ENRICHMENT_MODEL: "glm-4.5-flash",
+      KNOWLEDGE_ENRICHMENT_TIMEOUT_MS: "7000",
+    },
+  );
+  const legacyGlmTimeoutConfig = resolveKnowledgeEnrichmentConfig(
+    {},
+    {
+      KNOWLEDGE_ENRICHMENT_BASE_URL: "https://open.bigmodel.cn/api/paas/v4/",
+      KNOWLEDGE_ENRICHMENT_MODEL: "glm-4.5-flash",
+      KNOWLEDGE_ENRICHMENT_TIMEOUT_MS: "15000",
+    },
+  );
+
+  assert.equal(glmDefaultConfig.timeoutMs, 60_000);
+  assert.equal(genericDefaultConfig.timeoutMs, 15_000);
+  assert.equal(legacyGlmTimeoutConfig.timeoutMs, 60_000);
+  assert.equal(overriddenTimeoutConfig.timeoutMs, 7_000);
 
   await runMigrations(databaseUrl);
 
