@@ -35,18 +35,32 @@ async function main() {
   try {
     const sourceId = await createSource(db, publishedAt);
     const duplicateMembershipItemId = await createProcessedItem(db, {
+      contentText: "Duplicate membership item explanation.",
       publishedAt,
       sourceId,
+      summaryShort: "Duplicate membership item summary",
       title: "Duplicate membership item",
       topic: "AI",
       topicGroupTitles: ["AI topic", "Artificial Intelligence"],
     });
     const singleMembershipItemId = await createProcessedItem(db, {
+      contentText: "Single membership item explanation.",
       publishedAt,
       sourceId,
+      summaryShort: "Single membership item summary",
       title: "Single membership item",
       topic: "Systems",
       topicGroupTitles: ["Systems topic"],
+    });
+    const legacySummaryItemId = await createProcessedItem(db, {
+      contentText:
+        "Hi HN! I recently switched from a Fedora laptop to a MacBook Air and built a taskbar-style dock replacement to keep my workflow intact.",
+      publishedAt,
+      sourceId,
+      summaryShort: "Show HN: boringBar – a taskbar-style dock replacement for macOS: Hi HN!",
+      title: "Show HN: boringBar – a taskbar-style dock replacement for macOS",
+      topic: "Builders",
+      topicGroupTitles: [],
     });
 
     const viewModel = await getInboxPageViewModel();
@@ -54,9 +68,11 @@ async function main() {
     assert.equal(viewModel.isAvailable, true);
 
     const duplicateMembershipItem = viewModel.items.find((item) => item.id === duplicateMembershipItemId);
+    const legacySummaryItem = viewModel.items.find((item) => item.id === legacySummaryItemId);
     const singleMembershipItem = viewModel.items.find((item) => item.id === singleMembershipItemId);
 
     assert.ok(duplicateMembershipItem, "Duplicate membership item should appear in Inbox.");
+    assert.ok(legacySummaryItem, "Legacy summary item should appear in Inbox.");
     assert.ok(singleMembershipItem, "Single membership item should appear in Inbox.");
 
     assert.equal(
@@ -73,6 +89,10 @@ async function main() {
     assert.equal(duplicateMembershipItem.sourceName, "Inbox Smoke Feed");
     assert.equal(duplicateMembershipItem.sourceTopic, "AI");
     assert.equal(duplicateMembershipItem.sourceTypeLabel, "RSS");
+    assert.equal(
+      legacySummaryItem.summaryShort,
+      "I recently switched from a Fedora laptop to a MacBook Air and built a taskbar-style dock replacement to keep my workflow intact.",
+    );
     assert.equal(singleMembershipItem.sourceName, "Inbox Smoke Feed");
 
     console.log("Inbox smoke test passed.");
@@ -109,8 +129,10 @@ async function createSource(
 async function createProcessedItem(
   db: ReturnType<typeof createDbFromClient>,
   input: {
+    contentText: string;
     publishedAt: Date;
     sourceId: string;
+    summaryShort: string;
     title: string;
     topic: string;
     topicGroupTitles: string[];
@@ -141,6 +163,7 @@ async function createProcessedItem(
   const [item] = await db
     .insert(items)
     .values({
+      contentText: input.contentText,
       rawAssetId: rawAsset.id,
       itemType: "article",
       status: "processed",
@@ -155,7 +178,7 @@ async function createProcessedItem(
     classification: "research",
     importanceScore: 0.9,
     noveltyScore: 0.4,
-    summaryShort: `${input.title} summary`,
+    summaryShort: input.summaryShort,
     topic: input.topic,
   });
 

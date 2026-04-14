@@ -40,11 +40,13 @@ export interface InboxPageViewModel {
 interface InboxRow {
   canonicalUrl: string | null;
   classification: string | null;
+  contentText: string | null;
   id: string;
   importanceScore: number | null;
   metadata: Record<string, unknown>;
   noveltyScore: number | null;
   publishedAt: Date | null;
+  summaryLong: string | null;
   sourceName: string | null;
   sourceTopic: string | null;
   sourceType: "rss" | null;
@@ -140,11 +142,13 @@ async function loadInboxRows() {
       .select({
         canonicalUrl: items.canonicalUrl,
         classification: enrichments.classification,
+        contentText: items.contentText,
         id: items.id,
         importanceScore: enrichments.importanceScore,
         metadata: items.metadata,
         noveltyScore: enrichments.noveltyScore,
         publishedAt: items.publishedAt,
+        summaryLong: enrichments.summaryLong,
         sourceName: sources.name,
         sourceTopic: sources.topic,
         sourceType: sources.sourceType,
@@ -200,7 +204,7 @@ function mapInboxRow(row: InboxRow): InboxItemViewModel {
     sourceName: row.sourceName?.trim() || null,
     sourceTopic: row.sourceTopic?.trim() || null,
     sourceTypeLabel: row.sourceType ? formatSourceTypeLabel(row.sourceType) : null,
-    summaryShort: row.summaryShort,
+    summaryShort: resolveInboxSummaryShort(row),
     tags: row.tags ?? [],
     title: row.title?.trim() || "Untitled item",
     topic: row.topic,
@@ -224,6 +228,106 @@ function extractDuplicateOfItemId(metadata: Record<string, unknown>) {
 
 function formatSourceTypeLabel(sourceType: "rss") {
   return sourceType === "rss" ? "RSS" : sourceType;
+}
+
+function resolveInboxSummaryShort(row: Pick<InboxRow, "contentText" | "summaryLong" | "summaryShort" | "title">) {
+  const title = normalizeWhitespace(row.title ?? "");
+  const persistedSummaryShort = normalizeWhitespace(row.summaryShort ?? "");
+
+  if (isStandaloneSummaryShort({ summaryShort: persistedSummaryShort, title })) {
+    return persistedSummaryShort;
+  }
+
+  return deriveLegacySummaryShort({
+    contentText: row.contentText,
+    summaryLong: row.summaryLong,
+    title,
+  });
+}
+
+function deriveLegacySummaryShort(input: {
+  contentText: string | null;
+  summaryLong: string | null;
+  title: string;
+}) {
+  const candidates = [input.summaryLong, input.contentText]
+    .flatMap((value) => splitSummaryCandidates(value))
+    .filter((candidate, index, values) => values.indexOf(candidate) === index);
+
+  const firstStandaloneCandidate = candidates.find((candidate) =>
+    isStandaloneSummaryShort({
+      summaryShort: candidate,
+      title: input.title,
+    }),
+  );
+
+  return firstStandaloneCandidate ? truncateSummaryShort(firstStandaloneCandidate) : null;
+}
+
+function splitSummaryCandidates(value: string | null) {
+  const normalized = normalizeWhitespace(value ?? "");
+
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((candidate) => normalizeWhitespace(candidate))
+    .filter((candidate) => candidate.length >= 12)
+    .filter((candidate) => !isGreetingLikeCandidate(candidate))
+    .filter((candidate) => !isPromoLikeCandidate(candidate));
+}
+
+function isStandaloneSummaryShort(input: { summaryShort: string; title: string }) {
+  if (!input.summaryShort) {
+    return false;
+  }
+
+  if (!input.title) {
+    return true;
+  }
+
+  if (input.summaryShort.localeCompare(input.title, undefined, { sensitivity: "accent" }) === 0) {
+    return false;
+  }
+
+  const repeatedTitlePattern = new RegExp(`^${escapeRegExp(input.title)}\\s*[:\\-\\u2013\\u2014]\\s+`, "i");
+
+  return !repeatedTitlePattern.test(input.summaryShort);
+}
+
+function isGreetingLikeCandidate(candidate: string) {
+  return /^(hi|hello|hey|good (morning|afternoon|evening)|dear)\b/i.test(candidate);
+}
+
+function isPromoLikeCandidate(candidate: string) {
+  return /^listen to this update\b/i.test(candidate);
+}
+
+function truncateSummaryShort(value: string) {
+  const maxLength = 180;
+
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const truncated = value.slice(0, maxLength + 1);
+  const lastSpaceIndex = truncated.lastIndexOf(" ");
+
+  if (lastSpaceIndex < 80) {
+    return `${value.slice(0, maxLength).trimEnd()}…`;
+  }
+
+  return `${truncated.slice(0, lastSpaceIndex).trimEnd()}…`;
+}
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function getInboxUnavailableKind(error: unknown): InboxUnavailableKind | null {
