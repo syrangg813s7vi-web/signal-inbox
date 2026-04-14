@@ -419,6 +419,7 @@ The first non-RSS expansion path should be direct URL submission.
 Recommended endpoint shape:
 
 - `POST /api/capture/url`
+- `GET /api/debug/capture/url?url=...` for manual/browser testing only
 
 Minimum request body:
 
@@ -445,6 +446,8 @@ Execution flow:
 Design rules:
 
 - direct URL submission is a capture-ingress mechanism, not a special downstream processing path
+- `POST /api/capture/url` remains the formal integration contract
+- the debug `GET` route exists only to help a human trigger the same ingest path from a browser without crafting a JSON request body
 - do not bypass `CaptureEntry` or `RawAsset` for URL-based inputs
 - provider-specific extraction failures should be recorded as capture failures, not silent skips
 - the first version may be best-effort, but it must record enough metadata to explain:

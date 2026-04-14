@@ -11,6 +11,15 @@ class InboxStorageBootstrapActionError extends Error {
 }
 
 export async function ingestSubmittedUrl(submittedUrl: string) {
+  return ingestSubmittedUrlWithOptions(submittedUrl);
+}
+
+export async function ingestSubmittedUrlWithOptions(
+  submittedUrl: string,
+  options?: {
+    triggerRef?: string | null;
+  },
+) {
   return withSourceStorageReady(async () => {
     const { runSubmittedUrlIngestJob } = await import("@signal-inbox/core");
 
@@ -26,7 +35,7 @@ export async function ingestSubmittedUrl(submittedUrl: string) {
 
     return runSubmittedUrlIngestJob({
       submittedUrl,
-      triggerRef: "web:url-ingest",
+      triggerRef: options?.triggerRef?.trim() || "web:url-ingest",
     });
   });
 }
