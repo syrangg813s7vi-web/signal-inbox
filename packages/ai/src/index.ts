@@ -326,6 +326,8 @@ function buildKnowledgeEnrichmentPrompts(input: {
       "Return structured JSON that matches the provided schema exactly.",
       "Do not mention raw connectors, raw assets, HTML payloads, or extraction internals.",
       "The summary must be concise and product-ready.",
+      "summary.short must stand on its own and must not repeat the title verbatim.",
+      "Do not format summary.short as 'Title: ...', 'Title - ...', or a title-only label.",
       "The key_points array must contain 3 to 5 specific takeaways.",
       "Scores must be numbers between 0 and 1.",
       "Use preserve_recommendation=keep only when the item is worth preserving into Knowledge.",
@@ -370,6 +372,42 @@ function ensureNullableString(value: unknown, fieldName: string) {
   }
 
   return ensureString(value, fieldName);
+}
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function ensureKnowledgeEnrichmentSummaryShort(input: {
+  item: Pick<KnowledgeEnrichmentModelInput, "title">;
+  summaryShort: string;
+}) {
+  const summaryShort = normalizeWhitespace(input.summaryShort);
+  const title = normalizeWhitespace(input.item.title ?? "");
+
+  if (!title) {
+    return summaryShort;
+  }
+
+  if (summaryShort.localeCompare(title, undefined, { sensitivity: "accent" }) === 0) {
+    throw new KnowledgeEnrichmentOutputError(
+      "summary.short must not repeat the item title verbatim.",
+    );
+  }
+
+  const repeatedTitlePattern = new RegExp(`^${escapeRegExp(title)}\\s*[:\\-\\u2013\\u2014]\\s+`, "i");
+
+  if (repeatedTitlePattern.test(summaryShort)) {
+    throw new KnowledgeEnrichmentOutputError(
+      "summary.short must not repeat the item title as a prefixed label.",
+    );
+  }
+
+  return summaryShort;
 }
 
 function ensureScore(value: unknown, fieldName: string) {
@@ -623,9 +661,16 @@ async function runOpenAiKnowledgeEnrichment(input: {
         }
 
         try {
+          const output = validateKnowledgeEnrichmentOutput(JSON.parse(outputText) as unknown);
+
+          ensureKnowledgeEnrichmentSummaryShort({
+            item: input.item,
+            summaryShort: output.summary.short,
+          });
+
           return {
             config: input.config,
-            output: validateKnowledgeEnrichmentOutput(JSON.parse(outputText) as unknown),
+            output,
           };
         } catch (error) {
           lastError = error;

@@ -265,7 +265,8 @@ Constraints:
 V1 enrichment shape:
 
 - `summary_short`
-  - short Inbox summary used for quick review
+  - short AI-generated Inbox summary used for quick review
+  - must not degrade into `Title: first sentence` or a title-only label
 - `summary_long`
   - longer preservation-oriented summary when needed
 - `key_points`
