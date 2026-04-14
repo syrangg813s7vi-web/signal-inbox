@@ -15,6 +15,7 @@ export {
   captureEntryStatusEnum,
   captureEntryTypeEnum,
   enrichments,
+  inboxSelections,
   itemGroupMembers,
   itemGroups,
   itemGroupTypeEnum,

@@ -7,7 +7,7 @@ Planning is complete enough to begin implementation under the new architecture.
 The project now has:
 
 - a product model based on `Capture`, `Knowledge`, and `Review`
-- a four-layer implementation model
+- a five-layer implementation model
 - a revised data model for capture, normalization, knowledge, and review
 - a clear V1 boundary
 - an initial monorepo scaffold plan for `apps/web` and shared packages
@@ -209,6 +209,7 @@ Phase 4 is complete when:
   - Capture Layer
   - Normalization Layer
   - Knowledge Layer
+  - Inbox Selection Layer
   - Review Layer
 - Home must remain minimal
 - Inbox is the first major work surface

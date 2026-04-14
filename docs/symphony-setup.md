@@ -106,6 +106,7 @@ Symphony work should align with the repository's current architecture:
   - `Capture Layer`
   - `Normalization Layer`
   - `Knowledge Layer`
+  - `Inbox Selection Layer`
   - `Review Layer`
 
 The first implementation slice is:

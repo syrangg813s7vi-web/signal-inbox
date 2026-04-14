@@ -163,7 +163,14 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  packages/review: {}
+  packages/review:
+    dependencies:
+      '@signal-inbox/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
 
 packages:
 

@@ -112,7 +112,7 @@ async function canSkipMigrationStatementError(
   statement: string,
   error: unknown,
 ) {
-  if (canSkipDuplicateBootstrapObjectError(statement, error)) {
+  if (await canSkipBootstrapCompatibleObjectError(client, statement, error)) {
     return true;
   }
 
@@ -132,72 +132,102 @@ async function canSkipMigrationStatementError(
   return hasGenRandomUuidFunction(client);
 }
 
-function canSkipDuplicateBootstrapObjectError(statement: string, error: unknown) {
+async function canSkipBootstrapCompatibleObjectError(
+  client: SqlExecutor,
+  statement: string,
+  error: unknown,
+) {
   const code =
     typeof error === "object" && error !== null && "code" in error
       ? String(error.code)
       : null;
 
-  if (code !== "42P07" && code !== "42710") {
-    return false;
+  if (code === "42P07" || code === "42710" || code === "42701") {
+    return shouldSkipBootstrapCompatibleStatement(client, statement);
   }
 
-  const normalizedStatement = statement.replace(/\s+/g, " ").trim().toLowerCase();
+  if (code === "42704") {
+    const dropIndexName = extractDropIndexName(statement);
 
-  return (
-    normalizedStatement.includes('create type "public"."source_status"') ||
-    normalizedStatement.includes('create type "public"."source_type"') ||
-    normalizedStatement.includes('create table "source_sync_state"') ||
-    normalizedStatement.includes('create table "sources"') ||
-    normalizedStatement.includes(
-      'alter table "source_sync_state" add constraint "source_sync_state_source_id_sources_id_fk"',
-    ) ||
-    normalizedStatement.includes('create unique index "sources_source_type_source_ref_key"') ||
-    normalizedStatement.includes('create index "sources_status_idx"') ||
-    normalizedStatement.includes('create index "sources_topic_idx"')
-  );
-}
-
-async function shouldSkipBootstrapCompatibleStatement(client: SqlExecutor, statement: string) {
-  const normalizedStatement = statement.replace(/\s+/g, " ").trim().toLowerCase();
-
-  if (normalizedStatement.includes('create type "public"."source_status"')) {
-    return await typeExists(client, "source_status");
-  }
-
-  if (normalizedStatement.includes('create type "public"."source_type"')) {
-    return await typeExists(client, "source_type");
-  }
-
-  if (normalizedStatement.includes('create table "source_sync_state"')) {
-    return await relationExists(client, "public.source_sync_state");
-  }
-
-  if (normalizedStatement.includes('create table "sources"')) {
-    return await relationExists(client, "public.sources");
-  }
-
-  if (
-    normalizedStatement.includes(
-      'alter table "source_sync_state" add constraint "source_sync_state_source_id_sources_id_fk"',
-    )
-  ) {
-    return await constraintExists(client, "source_sync_state_source_id_sources_id_fk");
-  }
-
-  if (normalizedStatement.includes('create unique index "sources_source_type_source_ref_key"')) {
-    return await relationExists(client, "public.sources_source_type_source_ref_key");
-  }
-
-  if (normalizedStatement.includes('create index "sources_status_idx"')) {
-    return await relationExists(client, "public.sources_status_idx");
-  }
-
-  if (normalizedStatement.includes('create index "sources_topic_idx"')) {
-    return await relationExists(client, "public.sources_topic_idx");
+    if (dropIndexName) {
+      return !(await relationExists(client, `public.${dropIndexName}`));
+    }
   }
 
   return false;
+}
+
+async function shouldSkipBootstrapCompatibleStatement(client: SqlExecutor, statement: string) {
+  const typeName = extractCreatedTypeName(statement);
+
+  if (typeName) {
+    return await typeExists(client, typeName);
+  }
+
+  const tableName = extractCreatedTableName(statement);
+
+  if (tableName) {
+    return await relationExists(client, `public.${tableName}`);
+  }
+
+  const constraintName = extractAddedConstraintName(statement);
+
+  if (constraintName) {
+    return await constraintExists(client, constraintName);
+  }
+
+  const indexName = extractCreatedIndexName(statement);
+
+  if (indexName) {
+    return await relationExists(client, `public.${indexName}`);
+  }
+
+  const addedColumn = extractAddedColumn(statement);
+
+  if (addedColumn) {
+    return await columnExists(client, addedColumn.tableName, addedColumn.columnName);
+  }
+
+  const dropIndexName = extractDropIndexName(statement);
+
+  if (dropIndexName) {
+    return !(await relationExists(client, `public.${dropIndexName}`));
+  }
+
+  return false;
+}
+
+function extractCreatedTypeName(statement: string) {
+  return statement.match(/create type "public"\."([^"]+)"/i)?.[1] ?? null;
+}
+
+function extractCreatedTableName(statement: string) {
+  return statement.match(/create table "([^"]+)"/i)?.[1] ?? null;
+}
+
+function extractAddedConstraintName(statement: string) {
+  return statement.match(/add constraint "([^"]+)"/i)?.[1] ?? null;
+}
+
+function extractCreatedIndexName(statement: string) {
+  return statement.match(/create(?: unique)? index "([^"]+)"/i)?.[1] ?? null;
+}
+
+function extractDropIndexName(statement: string) {
+  return statement.match(/drop index "([^"]+)"/i)?.[1] ?? null;
+}
+
+function extractAddedColumn(statement: string) {
+  const match = statement.match(/alter table "([^"]+)" add column "([^"]+)"/i);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    columnName: match[2],
+    tableName: match[1],
+  };
 }
 
 async function typeExists(client: SqlExecutor, typeName: string) {
@@ -222,6 +252,23 @@ async function constraintExists(client: SqlExecutor, constraintName: string) {
   const [row] = await client.unsafe<Array<{ exists: boolean }>>(
     "select exists (select 1 from pg_constraint where conname = $1) as exists",
     [constraintName],
+  );
+
+  return row?.exists ?? false;
+}
+
+async function columnExists(client: SqlExecutor, tableName: string, columnName: string) {
+  const [row] = await client.unsafe<Array<{ exists: boolean }>>(
+    `
+      select exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'public'
+          and table_name = $1
+          and column_name = $2
+      ) as exists
+    `,
+    [tableName, columnName],
   );
 
   return row?.exists ?? false;
