@@ -1,10 +1,21 @@
 import Link from "next/link";
 
-import {
-  ARCHITECTURE_DOMAINS,
-  ARCHITECTURE_LAYERS,
-  type ArchitectureName,
-} from "@signal-inbox/core";
+const ARCHITECTURE_DOMAINS = [
+  "Capture",
+  "Knowledge",
+  "Review",
+] as const;
+
+const ARCHITECTURE_LAYERS = [
+  "Capture Layer",
+  "Normalization Layer",
+  "Knowledge Layer",
+  "Review Layer",
+] as const;
+
+type ArchitectureDomain = (typeof ARCHITECTURE_DOMAINS)[number];
+type ArchitectureLayer = (typeof ARCHITECTURE_LAYERS)[number];
+type ArchitectureName = ArchitectureDomain | ArchitectureLayer;
 
 const shellLinks = [
   { href: "/", label: "Home" },

@@ -23,6 +23,7 @@ export const sourceStatusEnum = pgEnum("source_status", ["active", "paused", "er
 export const captureEntryTypeEnum = pgEnum("capture_entry_type", [
   "source_sync",
   "manual_link",
+  "url_submission",
 ]);
 export const captureEntryStatusEnum = pgEnum("capture_entry_status", [
   "captured",

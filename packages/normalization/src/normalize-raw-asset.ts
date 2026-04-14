@@ -310,9 +310,17 @@ function buildNormalizedItem(
       normalizedAt: normalizedAt.toISOString(),
       rawAssetType: rawAsset.assetType,
       sourceUrl: readString(rawAsset.rawMetadata.sourceUrl),
+      submittedUrl: readString(rawAsset.rawMetadata.submittedUrl),
       extraction: {
         contentLength: contentText?.length ?? 0,
         contentSource: rawAsset.rawContent ? "raw_content" : "metadata_only",
+        extractor: readString(rawAsset.rawMetadata.extractor),
+        extractorVersion: readString(rawAsset.rawMetadata.extractorVersion),
+        fetchTimestamp: readString(rawAsset.rawMetadata.fetchTimestamp),
+        finalUrl: readString(rawAsset.rawMetadata.finalUrl),
+        httpStatus: readNumber(rawAsset.rawMetadata.httpStatus),
+        redirectCount: readNumber(rawAsset.rawMetadata.redirectCount),
+        status: readString(rawAsset.rawMetadata.extractionStatus),
         textFormat: hasMarkup(rawAsset.rawContent) ? "html" : "text",
       },
       rss: {
@@ -452,6 +460,10 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function readString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function firstNonEmpty(values: Array<string | null>): string | null {

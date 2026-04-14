@@ -25,6 +25,22 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
       await transaction.unsafe(`
         do $$
         begin
+          if exists (select 1 from pg_type where typname = 'capture_entry_type')
+            and not exists (
+              select 1
+              from pg_enum
+              where enumlabel = 'url_submission'
+                and enumtypid = 'capture_entry_type'::regtype
+            ) then
+            alter type "capture_entry_type" add value 'url_submission';
+          end if;
+        end
+        $$;
+      `);
+
+      await transaction.unsafe(`
+        do $$
+        begin
           if not exists (select 1 from pg_type where typname = 'capture_entry_status') then
             create type "capture_entry_status" as enum ('captured', 'normalized', 'failed');
           end if;
