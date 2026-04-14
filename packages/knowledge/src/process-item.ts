@@ -1,6 +1,10 @@
 import { and, eq, sql } from "drizzle-orm";
 
-import { enrichItemWithModel, type KnowledgeEnrichmentOutput } from "@signal-inbox/ai";
+import {
+  enrichItemWithModel,
+  ensureKnowledgeEnrichmentSummaryShort,
+  type KnowledgeEnrichmentOutput,
+} from "@signal-inbox/ai";
 
 import {
   captureEntries,
@@ -19,7 +23,6 @@ import { groupItem } from "./group-item";
 import { syncNoteToKnowledgeDestinations } from "./knowledge-sync";
 import { buildNoteIfPreservationWorthy } from "./note-builder";
 import { scoreItem } from "./score-item";
-import { summarizeItem } from "./summarize-item";
 import {
   V1_PROCESSING_ORDER,
   type CurrentEnrichmentRecord,
@@ -220,6 +223,14 @@ async function runKnowledgePipeline(
     input.knowledgeEnrichmentRunner,
   );
   const knowledgeOutput = applyKnowledgeLayerPostProcessing(dedupe, enrichment.output);
+
+  ensureKnowledgeEnrichmentSummaryShort({
+    item: {
+      title: processableItem.title,
+    },
+    summaryShort: knowledgeOutput.summary.short,
+  });
+
   const group = await groupItem(tx, {
     classification: {
       classification: knowledgeOutput.classification.label,

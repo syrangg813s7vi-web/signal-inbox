@@ -250,6 +250,33 @@ async function main() {
           databaseUrl,
           itemId: item.id,
           knowledgeEnrichmentConfig: {
+            model: "fixture-model-title-echo",
+            promptVersion: "v1",
+          },
+          knowledgeEnrichmentRunner: createRunner(() =>
+            validateKnowledgeEnrichmentOutput({
+              ...validFixture,
+              summary: {
+                long: validFixture.summary.long,
+                short: "OpenAI agent systems research: Normalized content for model-backed enrichment.",
+              },
+            }),
+          ),
+          reprocess: true,
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof ProcessItemJobError);
+        assert.match(error.message, /must not repeat the item title/);
+        return true;
+      },
+    );
+
+    await assert.rejects(
+      () =>
+        runProcessItemJob({
+          databaseUrl,
+          itemId: item.id,
+          knowledgeEnrichmentConfig: {
             model: "fixture-model-invalid",
             promptVersion: "v1",
           },
@@ -285,7 +312,7 @@ async function main() {
       (itemAfterFailure?.metadata as { knowledgeProcessing?: { status?: string } }).knowledgeProcessing?.status,
       "failed",
     );
-    assert.equal(runnerCalls.length, 3);
+    assert.equal(runnerCalls.length, 4);
 
     console.log("Model-backed knowledge enrichment smoke test passed.");
   } finally {

@@ -81,6 +81,7 @@ const rssSmokeKnowledgeEnrichmentRunner: KnowledgeEnrichmentRunner = async ({ co
     item.contentText?.split(/(?<=[.!?])\s+/)[0]?.trim() ?? item.contentText ?? item.title ?? "Item";
   const topic = item.sourceTopic ?? "General";
   const duplicateTopic = topic === "AI Duplicate";
+  const smokeSummaryShort = firstSentence.endsWith(".") ? firstSentence : `${firstSentence}.`;
 
   return {
     config,
@@ -102,7 +103,7 @@ const rssSmokeKnowledgeEnrichmentRunner: KnowledgeEnrichmentRunner = async ({ co
       preserveRecommendation: duplicateTopic ? "discard" : "keep",
       summary: {
         long: `${item.title ?? "Item"} covers ${firstSentence.replace(/\.$/, "")}.`,
-        short: `${item.title ?? "Item"}: ${firstSentence.replace(/\.$/, "")}.`,
+        short: smokeSummaryShort,
       },
       tags: [
         "topic_tracked",
@@ -392,7 +393,7 @@ async function runSmokeTest(
     assert.equal(firstNormalizedItemMetadata.rss?.feedUrl, "https://example.com/feed");
     assert.equal(firstEnrichment?.classification, "topic-tracked");
     assert.equal(firstEnrichment?.topic, "AI");
-    assert.equal(firstEnrichment?.summaryShort, "First article: First article description & details.");
+    assert.equal(firstEnrichment?.summaryShort, "First article description & details.");
     assert.equal(typeof firstEnrichment?.importanceScore, "number");
     assert.equal(typeof firstEnrichment?.noveltyScore, "number");
     assert.equal(firstEnrichmentMetadata.status, "processed");

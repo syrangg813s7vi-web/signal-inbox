@@ -42,11 +42,6 @@ export interface DedupeStepResult {
   noveltyScore: number;
 }
 
-export interface SummarizeStepResult {
-  keyPoints?: string[];
-  summaryShort: string | null;
-}
-
 export interface ClassifyStepResult {
   classification: string | null;
   tags: string[];
