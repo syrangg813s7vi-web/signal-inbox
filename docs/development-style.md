@@ -199,6 +199,33 @@ Vercel-specific constraints:
 - avoid large page files with mixed query, mutation, and rendering logic
 - prefer simple props over implicit context unless context is clearly justified
 
+## Frontend Surface Style
+
+- keep backend data shaping and frontend presentation separate
+- use server-side view-model builders for page-specific display contracts
+- do not let page components read or reinterpret raw persistence records directly
+- prefer one stable page view model per surface over repeated ad hoc field mapping in many components
+
+Inbox-specific UI rules:
+
+- treat Inbox as a reader-style surface, not a dashboard
+- prefer dense rows over large stacked cards
+- use a dedicated Inbox shell when the page needs a reading-oriented layout rather than reusing a generic dashboard shell
+- make the primary hierarchy:
+  - title
+  - excerpt
+  - source and topic metadata
+  - date
+- keep actions secondary and compact
+- preserve high information density without horizontal overflow
+
+Layout resilience rules:
+
+- long content must not push the page outside the viewport
+- list rows and metadata containers should be built to tolerate long URLs, source labels, and tags
+- use truncation, line clamping, and bounded flex layouts intentionally
+- desktop and mobile may differ in navigation structure, but should preserve the same row-first reading model
+
 ## Database and Data Access Style
 
 - keep schema definitions in the db package

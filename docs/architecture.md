@@ -228,6 +228,41 @@ Not responsible for:
 - note sync execution
 - review scheduling
 
+Frontend boundary rule:
+
+- web surfaces should consume server-shaped view models rather than raw database records or raw capture payloads
+- page layout changes should normally affect:
+  - page-specific components
+  - page-specific server view shaping
+- page layout changes should not require changes to capture, normalization, or knowledge-processing modules
+
+Inbox surface rule:
+
+- Inbox should use a dedicated reader-style layout instead of inheriting a generic dashboard shell
+- the preferred page structure is:
+  - `ReaderSidebar`
+  - `ReaderHeader`
+  - `ReaderTabs`
+  - `ReaderSortBar`
+  - `ReaderList`
+  - `ReaderListItem`
+- the list item is the primary unit of interaction, not the oversized card
+- row content should be shaped from a stable Inbox view model rather than assembled ad hoc inside leaf UI components
+
+Inbox view-model rule:
+
+- the server layer should expose a page-specific row model that contains the fields needed for layout, such as:
+  - title
+  - excerpt or summary
+  - source name
+  - source topic
+  - classification
+  - tags
+  - published or moved date label
+  - importance and novelty scores when used
+  - destination URL when present
+- presentational components should not derive these semantics directly from low-level persistence records
+
 Debug and review-stage expectation:
 
 - website review happens through Vercel preview deployments
