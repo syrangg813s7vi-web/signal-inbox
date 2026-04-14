@@ -48,6 +48,27 @@ async function main() {
       topic: "Systems",
       topicGroupTitles: ["Systems topic"],
     });
+    const titlePrefixedSummaryItemId = await createProcessedItem(db, {
+      contentText:
+        "OpenAI is a non-profit artificial intelligence research company. It exists to ensure the benefits of AI are broadly shared.",
+      publishedAt,
+      sourceId,
+      summaryShort:
+        "Introducing OpenAI: OpenAI is a non-profit artificial intelligence research company.",
+      title: "Introducing OpenAI",
+      topic: "AI",
+      topicGroupTitles: ["AI topic"],
+    });
+    const titleOnlySummaryItemId = await createProcessedItem(db, {
+      publishedAt,
+      sourceId,
+      summaryLong:
+        "This paper introduces weight normalization as a reparameterization that speeds up optimization for deep neural networks.",
+      summaryShort: "Weight normalization: A simple reparameterization to accelerate training of deep neural networks",
+      title: "Weight normalization: A simple reparameterization to accelerate training of deep neural networks",
+      topic: "Research",
+      topicGroupTitles: ["Research topic"],
+    });
 
     const viewModel = await getInboxPageViewModel();
 
@@ -55,9 +76,13 @@ async function main() {
 
     const duplicateMembershipItem = viewModel.items.find((item) => item.id === duplicateMembershipItemId);
     const singleMembershipItem = viewModel.items.find((item) => item.id === singleMembershipItemId);
+    const titlePrefixedSummaryItem = viewModel.items.find((item) => item.id === titlePrefixedSummaryItemId);
+    const titleOnlySummaryItem = viewModel.items.find((item) => item.id === titleOnlySummaryItemId);
 
     assert.ok(duplicateMembershipItem, "Duplicate membership item should appear in Inbox.");
     assert.ok(singleMembershipItem, "Single membership item should appear in Inbox.");
+    assert.ok(titlePrefixedSummaryItem, "Legacy title-prefixed summary item should appear in Inbox.");
+    assert.ok(titleOnlySummaryItem, "Legacy title-only summary item should appear in Inbox.");
 
     assert.equal(
       viewModel.items.filter((item) => item.id === duplicateMembershipItemId).length,
@@ -74,6 +99,16 @@ async function main() {
     assert.equal(duplicateMembershipItem.sourceTopic, "AI");
     assert.equal(duplicateMembershipItem.sourceTypeLabel, "RSS");
     assert.equal(singleMembershipItem.sourceName, "Inbox Smoke Feed");
+    assert.equal(
+      titlePrefixedSummaryItem.summaryShort,
+      "OpenAI is a non-profit artificial intelligence research company.",
+      "Inbox should trim legacy title-prefixed short summaries down to the readable sentence.",
+    );
+    assert.equal(
+      titleOnlySummaryItem.summaryShort,
+      "This paper introduces weight normalization as a reparameterization that speeds up optimization for deep neural networks.",
+      "Inbox should fall back to the longer stored summary when the short summary only repeats the title.",
+    );
 
     console.log("Inbox smoke test passed.");
   } finally {
@@ -109,8 +144,11 @@ async function createSource(
 async function createProcessedItem(
   db: ReturnType<typeof createDbFromClient>,
   input: {
+    contentText?: string;
     publishedAt: Date;
     sourceId: string;
+    summaryLong?: string;
+    summaryShort?: string;
     title: string;
     topic: string;
     topicGroupTitles: string[];
@@ -141,6 +179,7 @@ async function createProcessedItem(
   const [item] = await db
     .insert(items)
     .values({
+      contentText: input.contentText,
       rawAssetId: rawAsset.id,
       itemType: "article",
       status: "processed",
@@ -155,7 +194,8 @@ async function createProcessedItem(
     classification: "research",
     importanceScore: 0.9,
     noveltyScore: 0.4,
-    summaryShort: `${input.title} summary`,
+    summaryLong: input.summaryLong ?? null,
+    summaryShort: input.summaryShort ?? `${input.title} summary`,
     topic: input.topic,
   });
 

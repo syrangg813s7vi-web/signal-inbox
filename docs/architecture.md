@@ -268,6 +268,7 @@ Inbox view-model rule:
   - published or moved date label
   - importance and novelty scores when used
   - destination URL when present
+- the server layer may normalize legacy summary fields into a trustworthy compact review summary when stored short summaries are missing or only repeat the title
 - presentational components should not derive these semantics directly from low-level persistence records
 
 Debug and review-stage expectation:

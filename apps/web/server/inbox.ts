@@ -40,6 +40,7 @@ export interface InboxPageViewModel {
 interface InboxRow {
   canonicalUrl: string | null;
   classification: string | null;
+  contentText: string | null;
   id: string;
   importanceScore: number | null;
   metadata: Record<string, unknown>;
@@ -48,6 +49,7 @@ interface InboxRow {
   sourceName: string | null;
   sourceTopic: string | null;
   sourceType: "rss" | null;
+  summaryLong: string | null;
   summaryShort: string | null;
   tags: string[] | null;
   title: string | null;
@@ -79,6 +81,7 @@ const timestampFormatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
   timeStyle: "short",
 });
+const MAX_COMPACT_SUMMARY_LENGTH = 220;
 
 let inboxStorageBootstrapPromise: Promise<void> | null = null;
 
@@ -140,6 +143,7 @@ async function loadInboxRows() {
       .select({
         canonicalUrl: items.canonicalUrl,
         classification: enrichments.classification,
+        contentText: items.contentText,
         id: items.id,
         importanceScore: enrichments.importanceScore,
         metadata: items.metadata,
@@ -148,6 +152,7 @@ async function loadInboxRows() {
         sourceName: sources.name,
         sourceTopic: sources.topic,
         sourceType: sources.sourceType,
+        summaryLong: enrichments.summaryLong,
         summaryShort: enrichments.summaryShort,
         tags: enrichments.tags,
         title: items.title,
@@ -190,6 +195,8 @@ async function withInboxStorageReady<T>(operation: () => Promise<T>): Promise<T>
 }
 
 function mapInboxRow(row: InboxRow): InboxItemViewModel {
+  const title = row.title?.trim() || "Untitled item";
+
   return {
     classification: row.classification,
     duplicateOfItemId: extractDuplicateOfItemId(row.metadata),
@@ -200,13 +207,114 @@ function mapInboxRow(row: InboxRow): InboxItemViewModel {
     sourceName: row.sourceName?.trim() || null,
     sourceTopic: row.sourceTopic?.trim() || null,
     sourceTypeLabel: row.sourceType ? formatSourceTypeLabel(row.sourceType) : null,
-    summaryShort: row.summaryShort,
+    summaryShort: selectCompactSummary(row),
     tags: row.tags ?? [],
-    title: row.title?.trim() || "Untitled item",
+    title,
     topic: row.topic,
     topicGroupTitle: row.topicGroupTitle,
     url: row.canonicalUrl,
   };
+}
+
+function selectCompactSummary(row: InboxRow) {
+  const title = normalizeText(row.title);
+  const preferredSummary = normalizeText(row.summaryShort);
+
+  if (preferredSummary) {
+    const trimmedLegacyPrefix = trimTitlePrefix(preferredSummary, title);
+
+    if (trimmedLegacyPrefix) {
+      return clampSummary(trimmedLegacyPrefix);
+    }
+
+    if (!isDegenerateSummary(preferredSummary, title)) {
+      return clampSummary(preferredSummary);
+    }
+  }
+
+  const fallbackSummary = firstReadableFallback([row.summaryLong, row.contentText], title);
+
+  return fallbackSummary ? clampSummary(fallbackSummary) : null;
+}
+
+function firstReadableFallback(values: Array<string | null>, title: string | null) {
+  for (const value of values) {
+    const normalizedValue = normalizeText(value);
+
+    if (!normalizedValue) {
+      continue;
+    }
+
+    const firstSentence = extractFirstSentence(normalizedValue) ?? normalizedValue;
+
+    if (!isDegenerateSummary(firstSentence, title)) {
+      return firstSentence;
+    }
+  }
+
+  return null;
+}
+
+function trimTitlePrefix(summary: string, title: string | null) {
+  if (!title) {
+    return null;
+  }
+
+  const separators = [":", " - ", " – ", " — "];
+
+  for (const separator of separators) {
+    const prefix = `${title}${separator}`;
+
+    if (summary.startsWith(prefix)) {
+      const remainder = normalizeText(summary.slice(prefix.length));
+
+      if (remainder && !isDegenerateSummary(remainder, title)) {
+        return remainder;
+      }
+    }
+  }
+
+  return null;
+}
+
+function isDegenerateSummary(summary: string, title: string | null) {
+  if (!title) {
+    return false;
+  }
+
+  return canonicalizeForComparison(summary) === canonicalizeForComparison(title);
+}
+
+function extractFirstSentence(value: string) {
+  const match = value.match(/^(.+?[.!?])(?:\s|$)/);
+
+  return match?.[1] ?? null;
+}
+
+function clampSummary(value: string) {
+  if (value.length <= MAX_COMPACT_SUMMARY_LENGTH) {
+    return value;
+  }
+
+  return `${value.slice(0, MAX_COMPACT_SUMMARY_LENGTH - 1).trimEnd()}…`;
+}
+
+function normalizeText(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  return normalized || null;
+}
+
+function canonicalizeForComparison(value: string) {
+  return value
+    .replace(/[.:!?]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase("en-US");
 }
 
 function extractDuplicateOfItemId(metadata: Record<string, unknown>) {
