@@ -215,6 +215,7 @@ Inbox-specific UI rules:
   - preview tile
   - title
   - excerpt
+- in the approved minimal Inbox row, a single lightweight source `Open` action is allowed when a URL is present
 - keep secondary metadata optional and hide it entirely when the approved row design is a minimal reading queue
 - do not leave right-side action or date rails in minimal Inbox rows
 - preserve high information density without horizontal overflow

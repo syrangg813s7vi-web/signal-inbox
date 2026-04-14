@@ -72,6 +72,7 @@ export function InboxPageLoading() {
                       <div className="h-4 w-full animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
                       <div className="h-4 w-5/6 animate-pulse rounded-full bg-[rgba(29,34,28,0.08)]" />
                     </div>
+                    <div className="h-7 w-20 animate-pulse rounded-full bg-[rgba(31,107,92,0.12)]" />
                   </div>
                 </article>
               ))}

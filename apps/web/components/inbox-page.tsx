@@ -170,6 +170,18 @@ function InboxListRow({ item }: { item: InboxItemViewModel }) {
         >
           {item.summaryShort ?? "No short summary was produced for this item."}
         </p>
+
+        {item.url ? (
+          <Link
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex max-w-full items-center gap-1 rounded-full border border-[rgba(29,34,28,0.1)] bg-[rgba(255,255,255,0.52)] px-2.5 py-1 text-[11px] uppercase tracking-[0.22em] text-[var(--accent)] transition hover:border-[rgba(31,107,92,0.24)] hover:bg-[rgba(31,107,92,0.08)]"
+          >
+            <span>Open</span>
+            <span aria-hidden="true">↗</span>
+          </Link>
+        ) : null}
       </div>
     </article>
   );

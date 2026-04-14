@@ -149,6 +149,7 @@ Inbox design rules:
   - preview tile
   - title
   - short summary or excerpt
+- when a source URL exists, the row may expose one lightweight `Open` action without reintroducing a metadata band or right-side rail
 - row presentation should hide secondary metadata such as source labels, tags, scores, and published-date rails when the current reader surface is in minimal queue mode
 - the Inbox should optimize for scan speed and information density over decorative chrome
 - long titles and summaries must stay inside bounds without horizontal overflow
