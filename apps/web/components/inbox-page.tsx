@@ -113,11 +113,11 @@ export function InboxPage({ viewModel }: InboxPageProps) {
           </div>
 
           <div className="px-3 py-3 sm:px-4">
-            <div className="hidden grid-cols-[6px_72px_minmax(0,1fr)_112px] gap-3 rounded-[1.25rem] px-4 py-2 text-[11px] uppercase tracking-[0.28em] text-[var(--muted)] md:grid">
+            <div className="hidden grid-cols-[6px_72px_minmax(0,1fr)_108px] gap-3 rounded-[1.25rem] px-4 py-2 text-[11px] uppercase tracking-[0.28em] text-[var(--muted)] md:grid">
               <span />
               <span>Preview</span>
               <span>Item</span>
-              <span className="text-right">Date / Actions</span>
+              <span className="text-right">Actions / Date</span>
             </div>
 
             {viewModel.items.length === 0 ? (
@@ -142,13 +142,16 @@ function InboxListRow({ item }: { item: InboxItemViewModel }) {
   const sourceLabel = [item.sourceTypeLabel, item.sourceName, item.sourceTopic].filter(Boolean).join(" · ");
   const metadataTokens = [
     sourceLabel,
+    item.url ? formatUrlLabel(item.url) : null,
     item.topicGroupTitle ? `Group ${item.topicGroupTitle}` : null,
     item.tags[0] ?? null,
     item.tags[1] ?? null,
+    item.importanceScore !== null ? `Impact ${formatScore(item.importanceScore)}` : null,
+    item.noveltyScore !== null ? `Novelty ${formatScore(item.noveltyScore)}` : null,
   ].filter((value): value is string => Boolean(value));
 
   return (
-    <article className="group grid gap-3 rounded-[1.4rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] px-3 py-3 transition hover:bg-[rgba(255,250,239,0.95)] md:grid-cols-[6px_72px_minmax(0,1fr)_112px] md:items-start md:px-4">
+    <article className="group grid gap-3 rounded-[1.4rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] px-3 py-3 transition hover:bg-[rgba(255,250,239,0.95)] md:grid-cols-[6px_72px_minmax(0,1fr)_108px] md:items-start md:px-4">
       <div className={`hidden rounded-full md:block ${tone.accentClassName}`} />
 
       <div
@@ -201,26 +204,10 @@ function InboxListRow({ item }: { item: InboxItemViewModel }) {
           ))}
         </div>
 
-        {item.url ? (
-          <p className="mt-2 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-[var(--accent)]" title={item.url}>
-            {formatUrlLabel(item.url)}
-          </p>
-        ) : null}
       </div>
 
       <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-3 md:block md:border-t-0 md:pt-0">
-        <div className="min-w-0 md:text-right">
-          <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
-            {item.publishedAtLabel ? "Published" : "Status"}
-          </p>
-          <p className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-6 text-[var(--foreground)]">
-            {item.publishedAtLabel ?? "Recently processed"}
-          </p>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2 md:mt-4 md:flex-col md:items-end">
-          <ScoreChip label="Impact" value={item.importanceScore} />
-          <ScoreChip label="Novelty" value={item.noveltyScore} />
+        <div className="flex shrink-0 items-center gap-2 md:flex-col md:items-end">
           {item.url ? (
             <a
               href={item.url}
@@ -231,6 +218,15 @@ function InboxListRow({ item }: { item: InboxItemViewModel }) {
               Open
             </a>
           ) : null}
+        </div>
+
+        <div className="min-w-0 md:text-right">
+          <p className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[0.22em] text-[var(--muted)]">
+            {item.publishedAtLabel ? "Published" : "Status"}
+          </p>
+          <p className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm leading-6 text-[var(--foreground)]">
+            {item.publishedAtLabel ?? "Recently processed"}
+          </p>
         </div>
       </div>
     </article>
@@ -286,14 +282,6 @@ function InlineChip({ label, tone }: { label: string; tone: "accent" | "neutral"
   return (
     <span className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] ${toneClassName}`}>
       {label}
-    </span>
-  );
-}
-
-function ScoreChip({ label, value }: { label: string; value: number | null }) {
-  return (
-    <span className="rounded-full border border-[var(--border)] bg-[rgba(255,255,255,0.5)] px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
-      {label} {formatScore(value)}
     </span>
   );
 }
