@@ -261,6 +261,7 @@ Inbox surface rule:
 Inbox view-model rule:
 
 - the server layer should expose a page-specific row model that contains the fields needed for layout, such as:
+  - preview seed data
   - title
   - excerpt or summary
   - source name
@@ -270,6 +271,7 @@ Inbox view-model rule:
   - published or moved date label
   - importance and novelty scores when used
   - destination URL when present
+- presentational components may intentionally hide some of these fields when the active Inbox row design calls for a more minimal reading queue
 - presentational components should not derive these semantics directly from low-level persistence records
 
 Debug and review-stage expectation:
