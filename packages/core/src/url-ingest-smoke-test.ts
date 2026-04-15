@@ -38,6 +38,30 @@ async function main() {
 async function runUrlIngestSmokeTest(databaseUrl: string) {
   const knowledgeEnrichmentRunner = buildSmokeKnowledgeEnrichmentRunner();
   const server = http.createServer((request, response) => {
+    if (request.url === "/article-with-embedded-video") {
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(`<!doctype html>
+<html lang="en">
+  <head>
+    <title>Signal Inbox article with embedded video</title>
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Signal Inbox article with embedded video" />
+    <meta property="og:description" content="This article includes an embedded video, but the primary review target remains the article." />
+    <meta property="og:image" content="http://127.0.0.1/article-cover.jpg" />
+  </head>
+  <body>
+    <article>
+      <h1>Signal Inbox article with embedded video</h1>
+      <p>This article body is intentionally long enough to remain an article after normalization.</p>
+      <p>It captures the case where a written page includes a supporting media block without changing the primary review target.</p>
+      <video controls poster="/embedded-poster.jpg"><source src="/embedded-video.mp4" type="video/mp4" /></video>
+      <p>Additional article paragraphs ensure Readability can still recover a normal article-shaped document with stable body text.</p>
+    </article>
+  </body>
+</html>`);
+      return;
+    }
+
     if (request.url === "/video") {
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
       response.end(`<!doctype html>
@@ -72,9 +96,26 @@ async function runUrlIngestSmokeTest(databaseUrl: string) {
 
   assert.ok(address && typeof address !== "string");
 
+  const articleUrl = `http://127.0.0.1:${address.port}/article-with-embedded-video`;
   const videoUrl = `http://127.0.0.1:${address.port}/video`;
 
   try {
+    const articleResult = await runSubmittedUrlIngestJob({
+      databaseUrl,
+      normalizeRawAssetJobRunner: ({ databaseUrl: jobDatabaseUrl, rawAssetId }) =>
+        runNormalizeRawAssetJob({
+          databaseUrl: jobDatabaseUrl,
+          processItemJobRunner: ({ databaseUrl: processDatabaseUrl, itemId }) =>
+            runProcessItemJob({
+              databaseUrl: processDatabaseUrl,
+              itemId,
+              knowledgeEnrichmentRunner,
+            }),
+          rawAssetId,
+        }),
+      submittedUrl: articleUrl,
+      triggerRef: "core-smoke:url-embedded-video-article-ingest",
+    });
     const videoResult = await runSubmittedUrlIngestJob({
       databaseUrl,
       normalizeRawAssetJobRunner: ({ databaseUrl: jobDatabaseUrl, rawAssetId }) =>
@@ -92,6 +133,9 @@ async function runUrlIngestSmokeTest(databaseUrl: string) {
       triggerRef: "core-smoke:url-video-ingest",
     });
 
+    assert.equal(articleResult.rawAssetIds.length, 1);
+    assert.equal(articleResult.normalizedItemIds.length, 1);
+    assert.equal(articleResult.processedItemIds.length, 1);
     assert.equal(videoResult.rawAssetIds.length, 1);
     assert.equal(videoResult.normalizedItemIds.length, 1);
     assert.equal(videoResult.processedItemIds.length, 1);
@@ -100,6 +144,18 @@ async function runUrlIngestSmokeTest(databaseUrl: string) {
     const db = createDbFromClient(sqlClient);
 
     try {
+      const [articleCaptureEntry] = await db
+        .select()
+        .from(captureEntries)
+        .where(eq(captureEntries.id, articleResult.captureEntryId));
+      const [articleRawAsset] = await db
+        .select()
+        .from(rawAssets)
+        .where(eq(rawAssets.id, articleResult.rawAssetIds[0]!));
+      const [articleItem] = await db
+        .select()
+        .from(items)
+        .where(eq(items.id, articleResult.normalizedItemIds[0]!));
       const [videoCaptureEntry] = await db
         .select()
         .from(captureEntries)
@@ -114,6 +170,14 @@ async function runUrlIngestSmokeTest(databaseUrl: string) {
         .from(items)
         .where(eq(items.id, videoResult.normalizedItemIds[0]!));
 
+      assert.equal(articleCaptureEntry?.entryType, "url_submission");
+      assert.equal(articleCaptureEntry?.status, "normalized");
+      assert.equal(articleRawAsset?.status, "normalized");
+      assert.equal(articleRawAsset?.assetType, "article");
+      assert.equal(articleItem?.itemType, "article");
+      assert.equal(articleItem?.canonicalUrl, articleUrl);
+      assert.equal(articleItem?.title, "Signal Inbox article with embedded video");
+      assert.equal(articleItem?.metadata.video, null);
       assert.equal(videoCaptureEntry?.entryType, "url_submission");
       assert.equal(videoCaptureEntry?.status, "normalized");
       assert.equal(videoRawAsset?.status, "normalized");

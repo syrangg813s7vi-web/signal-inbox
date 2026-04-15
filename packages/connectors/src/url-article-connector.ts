@@ -57,6 +57,16 @@ export interface SubmittedUrlVideoFetchResult {
   title: string | null;
 }
 
+interface DetectedVideoDocument extends SubmittedUrlVideoMetadata {
+  hasArticleOgType: boolean;
+  hasKnownPlatform: boolean;
+  hasVideoElement: boolean;
+  hasVideoEmbed: boolean;
+  hasVideoOgType: boolean;
+  siteName: string | null;
+  title: string | null;
+}
+
 export type SubmittedUrlFetchResult = SubmittedUrlArticleFetchResult | SubmittedUrlVideoFetchResult;
 
 export type SubmittedUrlConnectorFailureCode =
@@ -152,9 +162,13 @@ export async function fetchSubmittedUrlAsset(
     url: response.url,
   });
   const document = dom.window.document;
-  const videoMetadata = extractVideoMetadataFromDocument(document, response.url);
+  const detectedVideo = detectVideoDocument(document, response.url);
+  const article = new Readability(document).parse();
+  const articleContentText = normalizeWhitespace(article?.textContent);
 
-  if (videoMetadata) {
+  if (shouldTreatDocumentAsVideoTarget({ articleContentText, detectedVideo })) {
+    const videoMetadata = detectedVideo!;
+
     return {
       assetKind: "video",
       author: videoMetadata.creatorName,
@@ -192,8 +206,6 @@ export async function fetchSubmittedUrlAsset(
       title: videoMetadata.title,
     };
   }
-
-  const article = new Readability(document).parse();
 
   if (!article?.content?.trim()) {
     throw new SubmittedUrlConnectorError("URL ingest could not extract article-like content.", {
@@ -553,10 +565,10 @@ function extractPublishedAt(document: Document): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function extractVideoMetadataFromDocument(
+function detectVideoDocument(
   document: Document,
   targetUrl: string,
-): (SubmittedUrlVideoMetadata & { siteName: string | null; title: string | null }) | null {
+): DetectedVideoDocument | null {
   const ogType = readMetaContent(document, 'meta[property="og:type"]')?.toLowerCase() ?? null;
   const siteName = firstNonEmpty([
     readMetaContent(document, 'meta[property="og:site_name"]'),
@@ -598,12 +610,12 @@ function extractVideoMetadataFromDocument(
     ]),
   );
   const platform = detectKnownVideoPlatform(targetUrl);
-  const isVideoDocument =
-    Boolean(platform) ||
-    ogType?.startsWith("video.") === true ||
-    ogType === "video" ||
-    Boolean(embedUrl) ||
-    Boolean(document.querySelector("video"));
+  const hasKnownPlatform = Boolean(platform);
+  const hasVideoOgType = ogType?.startsWith("video.") === true || ogType === "video";
+  const hasArticleOgType = ogType === "article";
+  const hasVideoEmbed = Boolean(embedUrl);
+  const hasVideoElement = Boolean(document.querySelector("video"));
+  const isVideoDocument = hasKnownPlatform || hasVideoOgType || hasVideoEmbed || hasVideoElement;
 
   if (!isVideoDocument) {
     return null;
@@ -615,12 +627,82 @@ function extractVideoMetadataFromDocument(
     description,
     durationSeconds,
     embedUrl,
+    hasArticleOgType,
+    hasKnownPlatform,
+    hasVideoElement,
+    hasVideoEmbed,
+    hasVideoOgType,
     platform: platform ?? "web",
     siteName,
     targetUrl,
     thumbnailUrl,
     title,
   };
+}
+
+function shouldTreatDocumentAsVideoTarget(input: {
+  articleContentText: string | null;
+  detectedVideo: DetectedVideoDocument | null;
+}) {
+  if (!input.detectedVideo) {
+    return false;
+  }
+
+  if (input.detectedVideo.hasKnownPlatform) {
+    return true;
+  }
+
+  if (input.detectedVideo.hasArticleOgType && input.articleContentText) {
+    return false;
+  }
+
+  return !hasSubstantiveArticleContent({
+    articleContentText: input.articleContentText,
+    description: input.detectedVideo.description,
+    title: input.detectedVideo.title,
+  });
+}
+
+function hasSubstantiveArticleContent(input: {
+  articleContentText: string | null;
+  description: string | null;
+  title: string | null;
+}) {
+  const articleContentText = normalizeWhitespace(input.articleContentText);
+
+  if (!articleContentText) {
+    return false;
+  }
+
+  const comparableArticleText = normalizeComparableText(articleContentText);
+
+  if (comparableArticleText.length >= 220) {
+    return true;
+  }
+
+  let remainingText = comparableArticleText;
+
+  for (const repeatedSegment of [input.title, input.description]) {
+    const comparableSegment = normalizeComparableText(repeatedSegment);
+
+    if (!comparableSegment) {
+      continue;
+    }
+
+    remainingText = remainingText.replace(comparableSegment, " ").replace(/\s+/g, " ").trim();
+  }
+
+  return remainingText.length >= 140;
+}
+
+function normalizeComparableText(value: string | null | undefined) {
+  const normalized = normalizeWhitespace(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized.toLowerCase().replace(/[^\p{L}\p{N}\s]+/gu, " ").replace(/\s+/g, " ").trim();
 }
 
 function readMetaContent(document: Document, selector: string): string | null {
