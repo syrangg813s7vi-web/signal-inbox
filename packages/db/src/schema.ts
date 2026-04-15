@@ -31,10 +31,10 @@ export const captureEntryStatusEnum = pgEnum("capture_entry_status", [
   "failed",
 ]);
 
-export const rawAssetTypeEnum = pgEnum("raw_asset_type", ["url", "article"]);
+export const rawAssetTypeEnum = pgEnum("raw_asset_type", ["url", "article", "video"]);
 export const rawAssetStatusEnum = pgEnum("raw_asset_status", ["new", "normalized", "failed"]);
 
-export const itemTypeEnum = pgEnum("item_type", ["article"]);
+export const itemTypeEnum = pgEnum("item_type", ["article", "video"]);
 export const itemStatusEnum = pgEnum("item_status", ["new", "processed", "archived"]);
 export const preserveRecommendationEnum = pgEnum("preserve_recommendation", [
   "keep",

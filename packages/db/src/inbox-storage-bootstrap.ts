@@ -61,6 +61,22 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
       await transaction.unsafe(`
         do $$
         begin
+          if exists (select 1 from pg_type where typname = 'raw_asset_type')
+            and not exists (
+              select 1
+              from pg_enum
+              where enumlabel = 'video'
+                and enumtypid = 'raw_asset_type'::regtype
+            ) then
+            alter type "raw_asset_type" add value 'video';
+          end if;
+        end
+        $$;
+      `);
+
+      await transaction.unsafe(`
+        do $$
+        begin
           if not exists (select 1 from pg_type where typname = 'raw_asset_status') then
             create type "raw_asset_status" as enum ('new', 'normalized', 'failed');
           end if;
@@ -73,6 +89,22 @@ export async function bootstrapInboxStorageSchema(databaseUrl = process.env.DATA
         begin
           if not exists (select 1 from pg_type where typname = 'item_type') then
             create type "item_type" as enum ('article');
+          end if;
+        end
+        $$;
+      `);
+
+      await transaction.unsafe(`
+        do $$
+        begin
+          if exists (select 1 from pg_type where typname = 'item_type')
+            and not exists (
+              select 1
+              from pg_enum
+              where enumlabel = 'video'
+                and enumtypid = 'item_type'::regtype
+            ) then
+            alter type "item_type" add value 'video';
           end if;
         end
         $$;

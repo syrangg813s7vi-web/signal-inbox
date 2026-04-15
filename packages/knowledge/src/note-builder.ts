@@ -32,6 +32,7 @@ export function buildNoteIfPreservationWorthy(input: NoteBuildInput): BuiltNoteR
   const bodyMd = input.enrichment.noteDraft
     ? prefixTitleIfMissing(input.enrichment.noteDraft, title)
     : buildFallbackNoteBody(input, title, excerpt);
+  const videoMetadata = extractVideoMetadata(input.item.existingMetadata);
 
   return {
     bodyMd,
@@ -45,6 +46,7 @@ export function buildNoteIfPreservationWorthy(input: NoteBuildInput): BuiltNoteR
         recommendation: input.enrichment.preserveRecommendation,
         rule: "model-backed-preserve-recommendation",
       },
+      video: videoMetadata,
     },
     noteType,
     reviewWeight,
@@ -54,6 +56,7 @@ export function buildNoteIfPreservationWorthy(input: NoteBuildInput): BuiltNoteR
 }
 
 function buildFallbackNoteBody(input: NoteBuildInput, title: string, excerpt: string | null) {
+  const videoMetadata = extractVideoMetadata(input.item.existingMetadata);
   const bodyLines = [
     `# ${title}`,
     "",
@@ -80,7 +83,17 @@ function buildFallbackNoteBody(input: NoteBuildInput, title: string, excerpt: st
       ? `- Classification: ${input.enrichment.classification.label}`
       : null,
     input.enrichment.classification.topic ? `- Topic: ${input.enrichment.classification.topic}` : null,
+    videoMetadata?.platform ? `- Video platform: ${videoMetadata.platform}` : null,
+    videoMetadata?.creatorName ? `- Video creator: ${videoMetadata.creatorName}` : null,
+    videoMetadata?.durationLabel ? `- Video duration: ${videoMetadata.durationLabel}` : null,
     "",
+    videoMetadata ? "## Video metadata" : null,
+    videoMetadata ? "" : null,
+    videoMetadata?.targetUrl ? `- Target URL: ${videoMetadata.targetUrl}` : null,
+    videoMetadata?.thumbnailUrl ? `- Thumbnail URL: ${videoMetadata.thumbnailUrl}` : null,
+    videoMetadata?.embedUrl ? `- Embed URL: ${videoMetadata.embedUrl}` : null,
+    videoMetadata?.description ? `- Description: ${videoMetadata.description}` : null,
+    videoMetadata ? "" : null,
     excerpt ? "## Source excerpt" : null,
     excerpt ? "" : null,
     excerpt ?? null,
@@ -132,4 +145,54 @@ function uniqueNonEmpty(values: Array<string | null | undefined>) {
   }
 
   return result;
+}
+
+function extractVideoMetadata(metadata: Record<string, unknown>) {
+  const video = asRecord(metadata.video);
+
+  if (!video) {
+    return null;
+  }
+
+  const durationSeconds = readNumber(video.durationSeconds);
+
+  return {
+    creatorName: readString(video.creatorName),
+    description: readString(video.description),
+    durationLabel:
+      readString(video.durationLabel) ??
+      (durationSeconds !== null ? formatDurationLabel(durationSeconds) : null),
+    embedUrl: readString(video.embedUrl),
+    platform: readString(video.platform),
+    targetUrl: readString(video.targetUrl),
+    thumbnailUrl: readString(video.thumbnailUrl),
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatDurationLabel(durationSeconds: number) {
+  const hours = Math.floor(durationSeconds / 3600);
+  const minutes = Math.floor((durationSeconds % 3600) / 60);
+  const seconds = durationSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }

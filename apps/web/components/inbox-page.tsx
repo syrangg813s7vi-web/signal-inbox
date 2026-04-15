@@ -52,6 +52,7 @@ export function InboxPage({ viewModel }: InboxPageProps) {
 function InboxListRow({ item }: { item: InboxItemViewModel }) {
   const tone = getRowTone(item);
   const previewLabel = getPreviewLabel(item);
+  const previewEyebrow = item.itemType === "video" ? item.video?.platformLabel ?? "Video" : item.sourceTypeLabel ?? "Item";
 
   return (
     <article className="group grid gap-3 rounded-[1.4rem] border border-[var(--border)] bg-[rgba(255,250,239,0.74)] px-3 py-3 transition hover:bg-[rgba(255,250,239,0.95)] md:grid-cols-[72px_minmax(0,1fr)] md:items-start md:px-4">
@@ -60,7 +61,7 @@ function InboxListRow({ item }: { item: InboxItemViewModel }) {
       >
         <div className="min-w-0">
           <p className="font-[family-name:var(--font-mono)] text-[10px] uppercase tracking-[0.24em] text-[rgba(255,250,239,0.86)]">
-            {item.sourceTypeLabel ?? "Item"}
+            {previewEyebrow}
           </p>
           <p className="mt-1 text-lg leading-none text-white">{previewLabel}</p>
         </div>
@@ -78,6 +79,12 @@ function InboxListRow({ item }: { item: InboxItemViewModel }) {
         >
           {item.title}
         </h3>
+
+        {item.metaLine ? (
+          <p className="mt-1 truncate text-[11px] uppercase tracking-[0.16em] text-[var(--muted)]">
+            {item.metaLine}
+          </p>
+        ) : null}
 
         <p
           className="mt-1.5 overflow-hidden text-sm leading-6 text-[var(--muted)]"
@@ -135,6 +142,10 @@ function ToolbarChip({ label }: { label: string }) {
 }
 
 function getPreviewLabel(item: InboxItemViewModel) {
+  if (item.itemType === "video") {
+    return "VD";
+  }
+
   const sourceSeed = item.sourceName ?? item.topic ?? item.title;
   const letters = sourceSeed
     .split(/[\s/-]+/)
@@ -147,6 +158,12 @@ function getPreviewLabel(item: InboxItemViewModel) {
 }
 
 function getRowTone(item: InboxItemViewModel) {
+  if (item.itemType === "video") {
+    return {
+      previewClassName: "bg-[linear-gradient(180deg,rgba(164,74,49,0.86),rgba(96,34,23,0.94))]",
+    };
+  }
+
   if (item.duplicateOfItemId) {
     return {
       previewClassName: "bg-[linear-gradient(180deg,rgba(187,108,47,0.85),rgba(119,69,30,0.92))]",
