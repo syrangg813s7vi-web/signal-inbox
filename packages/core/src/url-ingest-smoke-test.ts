@@ -20,7 +20,8 @@ import { runSubmittedUrlIngestJob } from "./url-ingest-job";
 import { captureEntries, startTemporaryPostgres } from "../../db/src";
 
 async function main() {
-  const temporaryPostgres = process.env.DATABASE_URL ? null : await startTemporaryPostgres();
+  const useProvidedDatabaseUrl = process.env.SIGNAL_INBOX_SMOKE_USE_DATABASE_URL === "1";
+  const temporaryPostgres = useProvidedDatabaseUrl ? null : await startTemporaryPostgres();
   const databaseUrl = temporaryPostgres?.databaseUrl ?? process.env.DATABASE_URL;
 
   assert.ok(databaseUrl, "DATABASE_URL must be set or a temporary PostgreSQL instance must start.");
