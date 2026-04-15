@@ -6,6 +6,9 @@ export interface InboxItemViewModel {
   duplicateOfItemId: string | null;
   id: string;
   importanceScore: number | null;
+  itemType: "article" | "video";
+  itemTypeLabel: string;
+  metaLine: string | null;
   noveltyScore: number | null;
   publishedAtLabel: string | null;
   selection: {
@@ -29,6 +32,13 @@ export interface InboxItemViewModel {
   topic: string | null;
   topicGroupTitle: string | null;
   url: string | null;
+  video: {
+    creatorName: string | null;
+    durationLabel: string | null;
+    platformLabel: string | null;
+    targetUrl: string | null;
+    thumbnailUrl: string | null;
+  } | null;
 }
 
 export interface InboxPageViewModel {
@@ -117,11 +127,22 @@ async function withInboxStorageReady<T>(operation: () => Promise<T>): Promise<T>
 }
 
 function mapInboxRow(row: SelectedInboxRow): InboxItemViewModel {
+  const video = parseVideoViewModel(row.metadata);
+  const summaryShort = resolveInboxSummaryShort(row, video);
+
   return {
     classification: row.classification,
     duplicateOfItemId: row.duplicateOfItemId,
     id: row.id,
     importanceScore: row.importanceScore,
+    itemType: row.itemType,
+    itemTypeLabel: row.itemType === "video" ? "Video" : "Article",
+    metaLine: buildMetaLine({
+      itemType: row.itemType,
+      publishedAt: row.publishedAt,
+      sourceType: row.sourceType,
+      video,
+    }),
     noveltyScore: row.noveltyScore,
     publishedAtLabel: row.publishedAt ? timestampFormatter.format(row.publishedAt) : null,
     selection: {
@@ -134,12 +155,13 @@ function mapInboxRow(row: SelectedInboxRow): InboxItemViewModel {
     sourceName: row.sourceName?.trim() || null,
     sourceTopic: row.sourceTopic?.trim() || null,
     sourceTypeLabel: row.sourceType ? formatSourceTypeLabel(row.sourceType) : null,
-    summaryShort: resolveInboxSummaryShort(row),
+    summaryShort,
     tags: row.tags ?? [],
     title: row.title?.trim() || "Untitled item",
     topic: row.topic,
     topicGroupTitle: row.topicGroupTitle,
-    url: row.canonicalUrl,
+    url: video?.targetUrl ?? row.canonicalUrl,
+    video,
   };
 }
 
@@ -149,6 +171,7 @@ function formatSourceTypeLabel(sourceType: "rss") {
 
 function resolveInboxSummaryShort(
   row: Pick<SelectedInboxRow, "contentText" | "summaryLong" | "summaryShort" | "title">,
+  video: InboxItemViewModel["video"],
 ) {
   const title = normalizeWhitespace(row.title ?? "");
   const persistedSummaryShort = normalizeWhitespace(row.summaryShort ?? "");
@@ -157,11 +180,17 @@ function resolveInboxSummaryShort(
     return persistedSummaryShort;
   }
 
-  return deriveLegacySummaryShort({
+  const derivedSummary = deriveLegacySummaryShort({
     contentText: row.contentText,
     summaryLong: row.summaryLong,
     title,
   });
+
+  if (derivedSummary) {
+    return derivedSummary;
+  }
+
+  return buildVideoSummaryFallback(video);
 }
 
 function deriveLegacySummaryShort(input: {
@@ -243,6 +272,116 @@ function truncateSummaryShort(value: string) {
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function parseVideoViewModel(metadata: Record<string, unknown>) {
+  const video = asRecord(metadata.video);
+
+  if (!video) {
+    return null;
+  }
+
+  const durationLabel = firstNonEmpty([
+    readString(video.durationLabel),
+    formatDurationLabel(readNumber(video.durationSeconds)),
+  ]);
+  const platform = readString(video.platform);
+
+  return {
+    creatorName: readString(video.creatorName),
+    durationLabel,
+    platformLabel: platform ? formatVideoPlatformLabel(platform) : "Video",
+    targetUrl: readString(video.targetUrl),
+    thumbnailUrl: readString(video.thumbnailUrl),
+  };
+}
+
+function buildMetaLine(input: {
+  itemType: InboxItemViewModel["itemType"];
+  publishedAt: Date | null;
+  sourceType: "rss" | null;
+  video: InboxItemViewModel["video"];
+}) {
+  if (input.itemType === "video") {
+    const parts = [
+      "Video",
+      input.video?.platformLabel ?? null,
+      input.video?.creatorName ?? null,
+      input.video?.durationLabel ?? null,
+    ].filter((value): value is string => Boolean(value));
+
+    return parts.length > 0 ? parts.join(" · ") : "Video";
+  }
+
+  const parts = [
+    input.sourceType ? formatSourceTypeLabel(input.sourceType) : null,
+    input.publishedAt ? timestampFormatter.format(input.publishedAt) : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function buildVideoSummaryFallback(video: InboxItemViewModel["video"]) {
+  if (!video) {
+    return null;
+  }
+
+  const parts = [
+    video.platformLabel ? `Video from ${video.platformLabel}` : "Video item",
+    video.creatorName ? `by ${video.creatorName}` : null,
+    video.durationLabel ? `(${video.durationLabel})` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return parts.join(" ");
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function readString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function firstNonEmpty(values: Array<string | null>) {
+  return values.find((value) => Boolean(value)) ?? null;
+}
+
+function formatVideoPlatformLabel(platform: string) {
+  switch (platform.toLowerCase()) {
+    case "youtube":
+      return "YouTube";
+    case "vimeo":
+      return "Vimeo";
+    case "direct":
+      return "Direct video";
+    default:
+      return "Video";
+  }
+}
+
+function formatDurationLabel(durationSeconds: number | null) {
+  if (durationSeconds === null) {
+    return null;
+  }
+
+  const hours = Math.floor(durationSeconds / 3600);
+  const minutes = Math.floor((durationSeconds % 3600) / 60);
+  const seconds = durationSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function escapeRegExp(value: string) {

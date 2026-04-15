@@ -5,7 +5,7 @@ import {
   normalizeSubmittedUrl,
   SubmittedUrlValidationError,
 } from "@signal-inbox/capture";
-import { fetchSubmittedUrlArticle, SubmittedUrlConnectorError } from "@signal-inbox/connectors";
+import { fetchSubmittedUrlAsset, SubmittedUrlConnectorError } from "@signal-inbox/connectors";
 
 import { runNormalizeRawAssetJob } from "./normalize-raw-asset-job";
 
@@ -57,7 +57,7 @@ export async function runSubmittedUrlIngestJob(input: RunSubmittedUrlIngestJobIn
   const normalizeRawAssetJobRunner = input.normalizeRawAssetJobRunner ?? runNormalizeRawAssetJob;
 
   try {
-    const connectorResult = await fetchSubmittedUrlArticle({
+    const connectorResult = await fetchSubmittedUrlAsset({
       submittedUrl: execution.submittedUrl,
     });
     const result = await completeSubmittedUrlExecution(
@@ -168,7 +168,7 @@ function buildFailureRawAsset(error: unknown, submittedUrl: string) {
   }
 
   return {
-    assetType: "url" as const,
+    assetType: error.details.contentType?.toLowerCase().startsWith("video/") ? ("video" as const) : ("url" as const),
     rawContent: error.details.bodyHtml ?? error.details.bodyText ?? null,
     rawMetadata: {
       ...error.details,

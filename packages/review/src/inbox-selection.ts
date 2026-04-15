@@ -80,6 +80,8 @@ export interface SelectedInboxItem {
   duplicateOfItemId: string | null;
   id: string;
   importanceScore: number | null;
+  itemType: "article" | "video";
+  metadata: Record<string, unknown>;
   noveltyScore: number | null;
   publishedAt: Date | null;
   scoreBreakdown: InboxSelectionScoreBreakdown;
@@ -199,6 +201,7 @@ export async function listSelectedInboxItems(
         contentText: items.contentText,
         id: items.id,
         importanceScore: enrichments.importanceScore,
+        itemType: items.itemType,
         metadata: items.metadata,
         noveltyScore: enrichments.noveltyScore,
         publishedAt: items.publishedAt,
@@ -238,6 +241,8 @@ export async function listSelectedInboxItems(
       duplicateOfItemId: extractDuplicateOfItemId(row.metadata),
       id: row.id,
       importanceScore: row.importanceScore,
+      itemType: row.itemType,
+      metadata: row.metadata ?? {},
       noveltyScore: row.noveltyScore,
       publishedAt: row.publishedAt,
       scoreBreakdown: normalizeScoreBreakdown(row.scoreBreakdown, row.relevanceScore),

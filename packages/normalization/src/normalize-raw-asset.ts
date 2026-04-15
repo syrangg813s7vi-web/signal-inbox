@@ -36,7 +36,7 @@ export interface RawAssetNormalizationContext {
 }
 
 interface RawAssetRecord {
-  assetType: "url" | "article";
+  assetType: "url" | "article" | "video";
   author: string | null;
   captureEntryId: string;
   externalId: string | null;
@@ -53,11 +53,23 @@ interface NormalizedItemDraft {
   author: string | null;
   canonicalUrl: string | null;
   contentText: string | null;
-  itemType: "article";
+  itemType: "article" | "video";
   language: string | null;
   metadata: Record<string, unknown>;
   publishedAt: Date | null;
   title: string | null;
+}
+
+interface NormalizedVideoMetadata {
+  creatorName: string | null;
+  creatorUrl: string | null;
+  description: string | null;
+  durationLabel: string | null;
+  durationSeconds: number | null;
+  embedUrl: string | null;
+  platform: string | null;
+  targetUrl: string | null;
+  thumbnailUrl: string | null;
 }
 
 type PostgresErrorLike = Error & {
@@ -289,7 +301,8 @@ function buildNormalizedItem(
   rawAsset: RawAssetRecord,
   normalizedAt: Date,
 ): NormalizedItemDraft {
-  const contentText = extractContentText(rawAsset.rawContent);
+  const videoMetadata = rawAsset.assetType === "video" ? normalizeVideoMetadata(rawAsset.rawMetadata, rawAsset.url) : null;
+  const contentText = videoMetadata ? buildVideoContentText(videoMetadata, rawAsset) : extractContentText(rawAsset.rawContent);
   const feedMetadata = asRecord(rawAsset.rawMetadata.feed);
   const connectorType = readString(rawAsset.rawMetadata.connectorType);
   const language = firstNonEmpty([
@@ -301,7 +314,7 @@ function buildNormalizedItem(
     author: rawAsset.author,
     canonicalUrl: rawAsset.url,
     contentText,
-    itemType: "article",
+    itemType: rawAsset.assetType === "video" ? "video" : "article",
     language,
     metadata: {
       captureEntryId: rawAsset.captureEntryId,
@@ -328,6 +341,7 @@ function buildNormalizedItem(
         feedTitle: readString(feedMetadata?.title),
         feedUrl: readString(feedMetadata?.siteUrl),
       },
+      video: videoMetadata,
     },
     publishedAt: rawAsset.publishedAt,
     title: rawAsset.title,
@@ -468,6 +482,59 @@ function readNumber(value: unknown): number | null {
 
 function firstNonEmpty(values: Array<string | null>): string | null {
   return values.find((value) => Boolean(value)) ?? null;
+}
+
+function normalizeVideoMetadata(
+  rawMetadata: Record<string, unknown>,
+  fallbackTargetUrl: string | null,
+): NormalizedVideoMetadata | null {
+  const video = asRecord(rawMetadata.video);
+
+  if (!video) {
+    return null;
+  }
+
+  const durationSeconds = readNumber(video.durationSeconds);
+
+  return {
+    creatorName: readString(video.creatorName),
+    creatorUrl: readString(video.creatorUrl),
+    description: readString(video.description),
+    durationLabel: durationSeconds !== null ? formatDurationLabel(durationSeconds) : null,
+    durationSeconds,
+    embedUrl: readString(video.embedUrl),
+    platform: readString(video.platform),
+    targetUrl: firstNonEmpty([readString(video.targetUrl), fallbackTargetUrl]),
+    thumbnailUrl: readString(video.thumbnailUrl),
+  };
+}
+
+function buildVideoContentText(
+  video: NormalizedVideoMetadata,
+  rawAsset: Pick<RawAssetRecord, "title">,
+) {
+  const lines = [
+    rawAsset.title ? `Video title: ${rawAsset.title}` : null,
+    video.platform ? `Platform: ${video.platform}` : null,
+    video.creatorName ? `Creator: ${video.creatorName}` : null,
+    video.durationLabel ? `Duration: ${video.durationLabel}` : null,
+    video.description ? `Description: ${video.description}` : null,
+    video.targetUrl ? `Target URL: ${video.targetUrl}` : null,
+  ].filter((line): line is string => Boolean(line));
+
+  return lines.join("\n") || null;
+}
+
+function formatDurationLabel(durationSeconds: number) {
+  const hours = Math.floor(durationSeconds / 3600);
+  const minutes = Math.floor((durationSeconds % 3600) / 60);
+  const seconds = durationSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 async function findExistingItemByCanonicalUrl(

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { captureEntries, createDbFromClient, createSqlClient, rawAssets } from "@signal-inbox/db";
-import type { SubmittedUrlArticleFetchResult, SubmittedUrlCaptureMetadata } from "@signal-inbox/connectors";
+import type { SubmittedUrlCaptureMetadata, SubmittedUrlFetchResult } from "@signal-inbox/connectors";
 
 export interface BeginSubmittedUrlExecutionInput {
   submittedUrl: string;
@@ -17,7 +17,7 @@ export interface SubmittedUrlExecutionRecord {
 
 export interface CompleteSubmittedUrlExecutionInput {
   captureEntryId: string;
-  connectorResult: SubmittedUrlArticleFetchResult;
+  connectorResult: SubmittedUrlFetchResult;
 }
 
 export interface SubmittedUrlSuccessResult {
@@ -28,7 +28,7 @@ export interface SubmittedUrlSuccessResult {
 }
 
 export interface SubmittedUrlFailureAssetInput {
-  assetType: "article" | "url";
+  assetType: "article" | "url" | "video";
   author?: string | null;
   publishedAt?: Date | null;
   rawContent?: string | null;
@@ -100,11 +100,11 @@ export async function completeSubmittedUrlExecution(
       const [rawAsset] = await tx
         .insert(rawAssets)
         .values({
-          assetType: "article",
+          assetType: input.connectorResult.assetKind === "video" ? "video" : "article",
           author: input.connectorResult.author,
           captureEntryId: input.captureEntryId,
           publishedAt: input.connectorResult.publishedAt,
-          rawContent: input.connectorResult.contentHtml,
+          rawContent: input.connectorResult.contentHtml ?? null,
           rawMetadata: buildSuccessRawAssetMetadata(input.connectorResult),
           title: input.connectorResult.title,
           updatedAt: completedAt,
@@ -228,13 +228,13 @@ export function normalizeSubmittedUrl(submittedUrl: string): string {
   return parsedUrl.toString();
 }
 
-function buildSuccessRawAssetMetadata(
-  connectorResult: SubmittedUrlArticleFetchResult,
-): Record<string, unknown> {
+function buildSuccessRawAssetMetadata(connectorResult: SubmittedUrlFetchResult): Record<string, unknown> {
   return {
     ...connectorResult.metadata,
+    assetKind: connectorResult.assetKind,
     connectorType: "submitted_url",
     contentTextLength: connectorResult.contentText.length,
+    description: connectorResult.assetKind === "video" ? connectorResult.metadata.video.description : null,
     excerpt: connectorResult.excerpt,
     language: connectorResult.language,
     siteName: connectorResult.siteName,

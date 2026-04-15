@@ -152,6 +152,7 @@ V1 asset types:
 
 - `url`
 - `article`
+- `video`
 - `raw_html`
 
 Future asset types:
@@ -220,13 +221,29 @@ States:
 V1 item types:
 
 - `article`
+- `video`
 
 Future item types:
 
 - `tweet`
-- `video`
 - `audio`
 - `note_candidate`
+
+Video-item metadata guidance:
+
+- video links should normalize into the shared `Item` model with `item_type = video`
+- the first-slice representation should preserve video-specific metadata in `items.metadata.video`
+- the normalized `items.metadata.video` object should retain, when available:
+  - `platform`
+  - `creatorName`
+  - `creatorUrl`
+  - `durationSeconds`
+  - `durationLabel`
+  - `thumbnailUrl`
+  - `targetUrl`
+  - `embedUrl`
+  - `description`
+- video items may synthesize `content_text` from stable metadata when transcript-like text is unavailable so the shared Knowledge and Review pipeline can still operate without a special bypass
 
 ### enrichments
 
@@ -295,6 +312,7 @@ Usage rule:
 - product surfaces should read the current enrichment row for an item, not an arbitrary historical row
 - `Inbox` should consume summary, key points, classification, tags, scores, and why-it-matters reasoning
 - `Knowledge` should additionally consume preserve recommendation and note draft
+- `Knowledge` preservation flows may also consume `items.metadata.video` so downstream notes and sinks can retain video-specific context without bypassing the shared `Item -> Enrichment -> Note` path
 - `Review` should consume processed summaries, key points, classifications, and scores rather than raw source material
 - `metadata.generation` should retain the provider, model, prompt version, and key generation settings used to produce the row
 

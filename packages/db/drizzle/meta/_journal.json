@@ -43,6 +43,13 @@
       "when": 1776169014287,
       "tag": "0005_reflective_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776220200000,
+      "tag": "0006_known_dragon_man",
+      "breakpoints": true
     }
   ]
 }
