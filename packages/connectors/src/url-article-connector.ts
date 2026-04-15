@@ -580,14 +580,15 @@ function extractVideoMetadataFromDocument(
   ]);
   const creatorUrl = readMetaContent(document, 'meta[property="article:author"]');
   const thumbnailUrl = firstNonEmpty([
-    readMetaContent(document, 'meta[property="og:image"]'),
-    readMetaContent(document, 'meta[name="twitter:image"]'),
+    resolveDocumentUrl(targetUrl, readMetaContent(document, 'meta[property="og:image"]')),
+    resolveDocumentUrl(targetUrl, readMetaContent(document, 'meta[name="twitter:image"]')),
+    resolveDocumentUrl(targetUrl, readAttribute(document, "video", "poster")),
   ]);
   const embedUrl = firstNonEmpty([
-    readMetaContent(document, 'meta[property="og:video:url"]'),
-    readMetaContent(document, 'meta[property="og:video"]'),
-    readMetaContent(document, 'meta[name="twitter:player"]'),
-    readAttribute(document, "video source", "src"),
+    resolveDocumentUrl(targetUrl, readMetaContent(document, 'meta[property="og:video:url"]')),
+    resolveDocumentUrl(targetUrl, readMetaContent(document, 'meta[property="og:video"]')),
+    resolveDocumentUrl(targetUrl, readMetaContent(document, 'meta[name="twitter:player"]')),
+    resolveDocumentUrl(targetUrl, readAttribute(document, "video source", "src")),
   ]);
   const durationSeconds = parseDurationSeconds(
     firstNonEmpty([
@@ -628,6 +629,18 @@ function readMetaContent(document: Document, selector: string): string | null {
 
 function readAttribute(document: Document, selector: string, attribute: string): string | null {
   return normalizeWhitespace(document.querySelector(selector)?.getAttribute(attribute));
+}
+
+function resolveDocumentUrl(documentUrl: string, value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value, documentUrl).toString();
+  } catch {
+    return value;
+  }
 }
 
 function normalizeHeaderValue(value: string | null): string | null {
